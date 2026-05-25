@@ -33,6 +33,7 @@ public final class UboRuleCompiler {
             "all",
             "document",
             "domain",
+            "elemhide",
             "font",
             "frame",
             "image",

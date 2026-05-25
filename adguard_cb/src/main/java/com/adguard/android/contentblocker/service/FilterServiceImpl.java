@@ -36,6 +36,7 @@ import com.adguard.android.contentblocker.db.FilterListDao;
 import com.adguard.android.contentblocker.db.FilterListDaoImpl;
 import com.adguard.android.contentblocker.db.FilterRuleDao;
 import com.adguard.android.contentblocker.db.FilterRuleDaoImpl;
+import com.adguard.android.contentblocker.filtering.UboRuleCompiler;
 import com.adguard.android.contentblocker.ui.utils.ProgressDialogUtils;
 import com.adguard.lite.sdk.commons.io.IoUtils;
 import com.adguard.lite.sdk.model.FilterList;
@@ -88,6 +89,7 @@ public class FilterServiceImpl implements FilterService {
     private final FilterRuleDao filterRuleDao;
     private final PreferencesService preferencesService;
     private final NotificationService notificationService;
+    private final UboRuleCompiler uboRuleCompiler = new UboRuleCompiler();
 
     private int cachedFilterRuleCount = 0;
 
@@ -318,13 +320,13 @@ public class FilterServiceImpl implements FilterService {
 
     @Override
     public void applyNewSettings() {
-        List<String> rules = getAllEnabledRules();
+        List<String> rules = uboRuleCompiler.compileAll(getAllEnabledRules());
 
         List<String> userRules = StringHelperUtils.splitAndTrim(preferencesService.getUserRules(), "\n");
         Set<String> disabledUserRules = preferencesService.getDisabledUserRules();
         for (String userRule : userRules) {
             if (validateRuleText(userRule) && !disabledUserRules.contains(userRule)) {
-                rules.add(userRule);
+                rules.addAll(uboRuleCompiler.compile(userRule).getCompiledRules());
             }
         }
 
@@ -332,14 +334,14 @@ public class FilterServiceImpl implements FilterService {
         Set<String> disabledWhitelistRules = preferencesService.getDisabledWhitelistRules();
         for (String whitelistRule : whitelistRules) {
             if (!disabledWhitelistRules.contains(whitelistRule)) {
-                rules.add(createWhiteListRule(whitelistRule));
+                rules.addAll(uboRuleCompiler.compile(createWhiteListRule(whitelistRule)).getCompiledRules());
 
                 /**
                  * Add these rules, because the Ya Browser does not support the $document modifier
                  */
                 // TODO Should remove this after the Ya Browser browser add support $document modifier
-                rules.add(String.format("@@http*$domain=%s", whitelistRule));
-                rules.add(String.format("@@||%s^$elemhide", whitelistRule));
+                rules.addAll(uboRuleCompiler.compile(String.format("@@http*$domain=%s", whitelistRule)).getCompiledRules());
+                rules.addAll(uboRuleCompiler.compile(String.format("@@||%s^$elemhide", whitelistRule)).getCompiledRules());
             }
         }
 

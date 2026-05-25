@@ -80,4 +80,20 @@ public class UboRuleCompilerTest {
         assertTrue(compiled.get(0).startsWith("! ubo-unsupported: scriptlet trusted-set-cookie: "));
         assertTrue(compiled.get(0).contains("example.com##+js(trusted-set-cookie, flag, 1)"));
     }
+
+    @Test
+    public void keepsOrderWhenCompilingMixedRuleLists() {
+        List<String> compiled = compiler.compileAll(Arrays.asList(
+                "! user rules",
+                "||ads.example.com^",
+                "example.com##+js(set, adBlockDetected, false)",
+                "example.com##:has-text(Sponsored)",
+                "*$removeparam=utm_campaign"));
+
+        assertEquals("! user rules", compiled.get(0));
+        assertEquals("||ads.example.com^", compiled.get(1));
+        assertEquals("example.com#%#//scriptlet('set-constant', 'adBlockDetected', 'false')", compiled.get(2));
+        assertTrue(compiled.get(3).startsWith("! ubo-unsupported: procedural cosmetic filter: "));
+        assertEquals("*$removeparam=utm_campaign", compiled.get(4));
+    }
 }
