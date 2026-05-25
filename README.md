@@ -23,6 +23,23 @@
 
 AdGuard Content Blocker is a tool to block ads in browsers that support content blocking technology. Currently, these browsers are Samsung Internet and Yandex Browser.
 
+## uBlock Origin filter compatibility
+
+This app accepts common uBlock Origin-style static filter syntax in user rules and imported lists, then normalizes supported rules before passing them to the Samsung/Yandex content-blocker engine.
+
+Supported compatibility categories:
+
+- Network URL patterns: plain patterns, wildcard patterns, hostname anchors such as `||example.com^`, and regex-delimited rules such as `/adserver\d+\.js/`.
+- Context options: common request type and context options such as `$script`, `$image`, `$stylesheet`, `$third-party`, `$domain=...`, `$popup`, `$redirect=...`, and `$removeparam=...`.
+- Cosmetic filters: standard CSS selector hiding and exceptions such as `example.com##.ad` and `example.com#@#.ad`.
+- Scriptlet aliases: common uBO `##+js(...)` aliases are converted to AdGuard scriptlet syntax for `set`, `set-constant`, `aopr`, `abort-on-property-read`, `aopw`, `abort-on-property-write`, `acis`, `abort-current-inline-script`, `ra`, `remove-attr`, `rc`, and `remove-class`.
+
+Runtime limitations:
+
+- The app is a content-blocker provider. It does not run a browser extension runtime and cannot directly inspect browser tabs, close popup windows, rewrite browser requests, or inject JavaScript by itself.
+- Redirect, popup, scriptlet, and tracking-parameter removal rules work only when the target browser's content-blocker engine supports the normalized rule syntax.
+- Unsupported procedural cosmetic filters and unknown scriptlets are written as `! ubo-unsupported: ...` comments in `filters.txt` instead of being silently dropped.
+
 To get more information and to download AdGuard Content Blocker, visit our website [https://adguard.com/](https://adguard.com/adguard-content-blocker/overview.html).
 
 &nbsp;
