@@ -1,0 +1,45 @@
+name: Build APK
+
+on:
+  push:
+    branches:
+      - master
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build content-blocker APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "11"
+          cache: gradle
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x ./gradlew
+
+      - name: Run unit tests
+        run: ./gradlew :adguard_cb:testProdProdBackendDebugUnitTest --stacktrace
+
+      - name: Build release APK
+        run: ./gradlew :adguard_cb:assembleProdProdBackendRelease --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: content-blocker-android
+          path: content-blocker-android.apk
+          if-no-files-found: error
