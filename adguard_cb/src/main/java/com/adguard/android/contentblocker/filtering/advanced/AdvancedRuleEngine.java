@@ -8,14 +8,41 @@ import java.util.regex.PatternSyntaxException;
 public final class AdvancedRuleEngine {
 
     private final AdvancedRuleSet rules;
+    private static final String[] RESOURCE_TYPE_OPTIONS = new String[]{
+            "script",
+            "image",
+            "stylesheet",
+            "font",
+            "media",
+            "document",
+            "subdocument"
+    };
 
     public AdvancedRuleEngine(AdvancedRuleSet rules) {
         this.rules = rules;
     }
 
     public FilterDecision evaluate(String requestUrl, String pageUrl) {
+        return evaluate(RequestContext.infer(requestUrl, pageUrl));
+    }
+
+    public FilterDecision evaluate(RequestContext context) {
+        FilterDecision importantDecision = firstMatchingDecision(context, true);
+        if (importantDecision.getAction() != FilterDecision.Action.ALLOW) {
+            return importantDecision;
+        }
+
+        if (hasMatchingException(context, rules.getRedirectRules()) ||
+                hasMatchingException(context, rules.getNetworkRules())) {
+            return FilterDecision.allow();
+        }
+
+        return firstMatchingDecision(context, false);
+    }
+
+    private FilterDecision firstMatchingDecision(RequestContext context, boolean importantOnly) {
         for (AdvancedRule rule : rules.getRedirectRules()) {
-            if (matches(rule, requestUrl, pageUrl)) {
+            if (!rule.isException() && (!importantOnly || rule.isImportant()) && matches(rule, context)) {
                 String options = rule.getOptionText();
                 if (options.contains("noopcss")) {
                     return FilterDecision.of(FilterDecision.Action.REDIRECT_NOOP_CSS, rule);
@@ -28,7 +55,7 @@ public final class AdvancedRuleEngine {
         }
 
         for (AdvancedRule rule : rules.getNetworkRules()) {
-            if (matches(rule, requestUrl, pageUrl)) {
+            if (!rule.isException() && (!importantOnly || rule.isImportant()) && matches(rule, context)) {
                 return FilterDecision.of(FilterDecision.Action.BLOCK, rule);
             }
         }
@@ -37,25 +64,55 @@ public final class AdvancedRuleEngine {
     }
 
     public FilterDecision evaluatePopup(String requestUrl, String pageUrl) {
+        return evaluatePopup(RequestContext.infer(requestUrl, pageUrl, true, ""));
+    }
+
+    public FilterDecision evaluatePopup(RequestContext context) {
         for (AdvancedRule rule : rules.getPopupRules()) {
-            if (matches(rule, requestUrl, pageUrl)) {
+            if (!rule.isException() && rule.isImportant() && matches(rule, context)) {
+                return FilterDecision.of(FilterDecision.Action.BLOCK, rule);
+            }
+        }
+
+        if (hasMatchingException(context, rules.getPopupRules())) {
+            return FilterDecision.allow();
+        }
+
+        for (AdvancedRule rule : rules.getPopupRules()) {
+            if (!rule.isException() && matches(rule, context)) {
                 return FilterDecision.of(FilterDecision.Action.BLOCK, rule);
             }
         }
         return FilterDecision.allow();
     }
 
-    private static boolean matches(AdvancedRule rule, String requestUrl, String pageUrl) {
-        return contextMatches(rule, pageUrl) && patternMatches(rule.getPattern(), requestUrl);
+    private static boolean hasMatchingException(RequestContext context, Iterable<AdvancedRule> rules) {
+        for (AdvancedRule rule : rules) {
+            if (rule.isException() && matches(rule, context)) {
+                return true;
+            }
+        }
+        return false;
     }
 
-    private static boolean contextMatches(AdvancedRule rule, String pageUrl) {
-        String domainOption = optionValue(rule.getOptionText(), "domain");
+    private static boolean matches(AdvancedRule rule, RequestContext context) {
+        return contextMatches(rule, context) && patternMatches(rule.getPattern(), context.getRequestUrl());
+    }
+
+    private static boolean contextMatches(AdvancedRule rule, RequestContext context) {
+        if (!resourceTypeMatches(rule, context)) {
+            return false;
+        }
+        if (!thirdPartyMatches(rule, context)) {
+            return false;
+        }
+
+        String domainOption = rule.getOptionValue("domain");
         if (domainOption.length() == 0) {
             return true;
         }
 
-        String pageHost = host(pageUrl);
+        String pageHost = host(context.getPageUrl());
         if (pageHost.length() == 0) {
             return false;
         }
@@ -79,6 +136,34 @@ public final class AdvancedRuleEngine {
         }
 
         return !hasIncludedDomains || includedDomainMatches;
+    }
+
+    private static boolean resourceTypeMatches(AdvancedRule rule, RequestContext context) {
+        boolean hasPositiveType = false;
+        boolean positiveTypeMatches = false;
+
+        for (String resourceType : RESOURCE_TYPE_OPTIONS) {
+            boolean positive = rule.hasOption(resourceType);
+            boolean negative = rule.hasOption("~" + resourceType);
+            boolean typeMatches = resourceType.equals(context.getResourceType());
+
+            if (negative && typeMatches) {
+                return false;
+            }
+            if (positive) {
+                hasPositiveType = true;
+                positiveTypeMatches = positiveTypeMatches || typeMatches;
+            }
+        }
+
+        return !hasPositiveType || positiveTypeMatches;
+    }
+
+    private static boolean thirdPartyMatches(AdvancedRule rule, RequestContext context) {
+        if (rule.hasOption("third-party") && !context.isThirdParty()) {
+            return false;
+        }
+        return !rule.hasOption("~third-party") || !context.isThirdParty();
     }
 
     private static boolean patternMatches(String pattern, String requestUrl) {
@@ -176,18 +261,6 @@ public final class AdvancedRuleEngine {
             regex.append('\\');
         }
         regex.append(c);
-    }
-
-    private static String optionValue(String options, String optionName) {
-        String[] parts = options.split(",");
-        String prefix = optionName + "=";
-        for (String part : parts) {
-            String option = part.trim();
-            if (option.startsWith(prefix)) {
-                return option.substring(prefix.length());
-            }
-        }
-        return "";
     }
 
     private static boolean domainMatches(String host, String domain) {

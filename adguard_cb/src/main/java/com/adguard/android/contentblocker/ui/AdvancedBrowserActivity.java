@@ -22,10 +22,12 @@ import com.adguard.android.contentblocker.filtering.advanced.AdvancedRuleSet;
 import com.adguard.android.contentblocker.filtering.advanced.AdvancedRuntimeRepository;
 import com.adguard.android.contentblocker.filtering.advanced.FilterDecision;
 import com.adguard.android.contentblocker.filtering.advanced.ProceduralCosmeticScriptBuilder;
+import com.adguard.android.contentblocker.filtering.advanced.RequestContext;
 import com.adguard.android.contentblocker.filtering.advanced.ScriptletScriptBuilder;
 import com.adguard.android.contentblocker.filtering.advanced.TrackingParameterCleaner;
 
 import java.io.ByteArrayInputStream;
+import java.util.Map;
 
 public class AdvancedBrowserActivity extends AppCompatActivity {
 
@@ -147,7 +149,11 @@ public class AdvancedBrowserActivity extends AppCompatActivity {
         @Override
         public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
             Uri uri = request.getUrl();
-            FilterDecision decision = engine.evaluate(uri.toString(), view.getUrl());
+            FilterDecision decision = engine.evaluate(RequestContext.infer(
+                    uri.toString(),
+                    view.getUrl(),
+                    request.isForMainFrame(),
+                    acceptHeader(request)));
             if (decision.getAction() == FilterDecision.Action.REDIRECT_NOOP_JS) {
                 return emptyResponse("application/javascript");
             }
@@ -166,6 +172,15 @@ public class AdvancedBrowserActivity extends AppCompatActivity {
             urlEditText.setText(url);
             view.evaluateJavascript(scriptletScriptBuilder.build(ruleSet.getScriptletRules(), url), null);
             view.evaluateJavascript(proceduralCosmeticScriptBuilder.build(ruleSet.getProceduralCosmeticRules(), url), null);
+        }
+
+        private String acceptHeader(WebResourceRequest request) {
+            Map<String, String> headers = request.getRequestHeaders();
+            if (headers == null) {
+                return "";
+            }
+            String accept = headers.get("Accept");
+            return accept == null ? "" : accept;
         }
     }
 }

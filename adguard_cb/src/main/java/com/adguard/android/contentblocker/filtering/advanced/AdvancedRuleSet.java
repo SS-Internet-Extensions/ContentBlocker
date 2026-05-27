@@ -13,15 +13,18 @@ public final class AdvancedRuleSet {
     private final List<AdvancedRule> cosmeticRules;
     private final List<AdvancedRule> proceduralCosmeticRules;
     private final List<AdvancedRule> scriptletRules;
+    private final List<AdvancedRule> badfilterRules;
 
     AdvancedRuleSet(List<AdvancedRule> rules) {
-        networkRules = filter(rules, AdvancedRuleType.NETWORK);
-        redirectRules = filter(rules, AdvancedRuleType.REDIRECT);
-        popupRules = filter(rules, AdvancedRuleType.POPUP);
-        removeparamRules = filter(rules, AdvancedRuleType.REMOVEPARAM);
-        cosmeticRules = filter(rules, AdvancedRuleType.COSMETIC);
-        proceduralCosmeticRules = filter(rules, AdvancedRuleType.PROCEDURAL_COSMETIC);
-        scriptletRules = filter(rules, AdvancedRuleType.SCRIPTLET);
+        badfilterRules = filterBadfilters(rules);
+        List<AdvancedRule> enabledRules = removeDisabledRules(rules, badfilterRules);
+        networkRules = filter(enabledRules, AdvancedRuleType.NETWORK);
+        redirectRules = filter(enabledRules, AdvancedRuleType.REDIRECT);
+        popupRules = filter(enabledRules, AdvancedRuleType.POPUP);
+        removeparamRules = filter(enabledRules, AdvancedRuleType.REMOVEPARAM);
+        cosmeticRules = filter(enabledRules, AdvancedRuleType.COSMETIC);
+        proceduralCosmeticRules = filter(enabledRules, AdvancedRuleType.PROCEDURAL_COSMETIC);
+        scriptletRules = filter(enabledRules, AdvancedRuleType.SCRIPTLET);
     }
 
     private static List<AdvancedRule> filter(List<AdvancedRule> rules, AdvancedRuleType type) {
@@ -32,6 +35,36 @@ public final class AdvancedRuleSet {
             }
         }
         return Collections.unmodifiableList(result);
+    }
+
+    private static List<AdvancedRule> filterBadfilters(List<AdvancedRule> rules) {
+        List<AdvancedRule> result = new ArrayList<>();
+        for (AdvancedRule rule : rules) {
+            if (rule.isBadfilter()) {
+                result.add(rule);
+            }
+        }
+        return Collections.unmodifiableList(result);
+    }
+
+    private static List<AdvancedRule> removeDisabledRules(List<AdvancedRule> rules, List<AdvancedRule> badfilterRules) {
+        List<AdvancedRule> result = new ArrayList<>();
+        for (AdvancedRule rule : rules) {
+            if (!rule.isBadfilter() && !disabledByBadfilter(rule, badfilterRules)) {
+                result.add(rule);
+            }
+        }
+        return result;
+    }
+
+    private static boolean disabledByBadfilter(AdvancedRule rule, List<AdvancedRule> badfilterRules) {
+        String key = rule.getComparableKey();
+        for (AdvancedRule badfilterRule : badfilterRules) {
+            if (key.equals(badfilterRule.getComparableKey())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public List<AdvancedRule> getNetworkRules() {
@@ -60,5 +93,9 @@ public final class AdvancedRuleSet {
 
     public List<AdvancedRule> getScriptletRules() {
         return scriptletRules;
+    }
+
+    public List<AdvancedRule> getBadfilterRules() {
+        return badfilterRules;
     }
 }

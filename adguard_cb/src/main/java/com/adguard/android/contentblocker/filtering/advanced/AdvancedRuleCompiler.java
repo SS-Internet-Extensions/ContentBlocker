@@ -16,6 +16,8 @@ public final class AdvancedRuleCompiler {
     private static final String COMMENT = "!";
     private static final String ADBLOCK_META_START = "[Adblock";
     private static final String UBO_SCRIPTLET_MARKER = "##+js(";
+    private static final String UBO_SCRIPTLET_EXCEPTION_MARKER = "#@#+js(";
+    private static final String EXCEPTION_PREFIX = "@@";
 
     private static final Set<String> PROCEDURAL_MARKERS = new HashSet<>(Arrays.asList(
             ":has-text(",
@@ -42,25 +44,48 @@ public final class AdvancedRuleCompiler {
             return null;
         }
 
-        if (StringUtils.contains(rule, UBO_SCRIPTLET_MARKER)) {
+        if (StringUtils.contains(rule, UBO_SCRIPTLET_EXCEPTION_MARKER) ||
+                StringUtils.contains(rule, UBO_SCRIPTLET_MARKER)) {
             return compileScriptlet(rule);
         }
 
         if (isCosmetic(rule)) {
             AdvancedRuleType type = isProcedural(rule) ? AdvancedRuleType.PROCEDURAL_COSMETIC : AdvancedRuleType.COSMETIC;
-            return new AdvancedRule(type, rule, domainPrefix(rule), "", "", selector(rule), "", Collections.<String>emptyList());
+            return createRule(type, rule, isCosmeticException(rule), domainPrefix(rule), "", "", selector(rule), "", Collections.<String>emptyList());
         }
 
-        return new AdvancedRule(networkType(rule), rule, "", pattern(rule), optionText(rule), "", "", Collections.<String>emptyList());
+        boolean exception = StringUtils.startsWith(rule, EXCEPTION_PREFIX);
+        String networkRule = exception ? rule.substring(EXCEPTION_PREFIX.length()) : rule;
+        String options = optionText(networkRule);
+        return createRule(networkType(networkRule), rule, exception, "", pattern(networkRule), options, "", "", Collections.<String>emptyList());
     }
 
     private AdvancedRule compileScriptlet(String rule) {
-        int markerStart = rule.indexOf(UBO_SCRIPTLET_MARKER);
-        int argsStart = markerStart + UBO_SCRIPTLET_MARKER.length();
+        boolean exception = StringUtils.contains(rule, UBO_SCRIPTLET_EXCEPTION_MARKER);
+        String marker = exception ? UBO_SCRIPTLET_EXCEPTION_MARKER : UBO_SCRIPTLET_MARKER;
+        int markerStart = rule.indexOf(marker);
+        int argsStart = markerStart + marker.length();
         int argsEnd = rule.lastIndexOf(')');
         List<String> args = argsEnd > argsStart ? splitArguments(rule.substring(argsStart, argsEnd)) : new ArrayList<String>();
         String scriptletName = args.isEmpty() ? "" : args.remove(0).toLowerCase(Locale.US);
-        return new AdvancedRule(AdvancedRuleType.SCRIPTLET, rule, rule.substring(0, markerStart), "", "", "", scriptletName, args);
+        return createRule(AdvancedRuleType.SCRIPTLET, rule, exception, rule.substring(0, markerStart), "", "", "", scriptletName, args);
+    }
+
+    private static AdvancedRule createRule(AdvancedRuleType type, String originalRule, boolean exception,
+                                           String domainPrefix, String pattern, String optionText,
+                                           String selector, String scriptletName, List<String> scriptletArgs) {
+        return new AdvancedRule(
+                type,
+                originalRule,
+                exception,
+                optionEnabled(optionText, "important"),
+                optionEnabled(optionText, "badfilter"),
+                domainPrefix,
+                pattern,
+                optionText,
+                selector,
+                scriptletName,
+                scriptletArgs);
     }
 
     private static AdvancedRuleType networkType(String rule) {
@@ -79,6 +104,10 @@ public final class AdvancedRuleCompiler {
 
     private static boolean isCosmetic(String rule) {
         return StringUtils.contains(rule, "##") || StringUtils.contains(rule, "#@#");
+    }
+
+    private static boolean isCosmeticException(String rule) {
+        return StringUtils.contains(rule, "#@#");
     }
 
     private static boolean isProcedural(String rule) {
@@ -108,6 +137,19 @@ public final class AdvancedRuleCompiler {
     private static String optionText(String rule) {
         int optionsStart = rule.indexOf('$');
         return optionsStart >= 0 && optionsStart < rule.length() - 1 ? rule.substring(optionsStart + 1) : "";
+    }
+
+    private static boolean optionEnabled(String options, String name) {
+        if (StringUtils.isBlank(options)) {
+            return false;
+        }
+        String[] parts = options.split(",");
+        for (String part : parts) {
+            if (name.equals(StringUtils.trim(part))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static List<String> splitArguments(String value) {
