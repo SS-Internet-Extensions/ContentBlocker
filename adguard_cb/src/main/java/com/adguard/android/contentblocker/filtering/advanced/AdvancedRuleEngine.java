@@ -118,7 +118,7 @@ public final class AdvancedRuleEngine {
         }
 
         boolean hostMatches = hostPattern.indexOf('*') >= 0
-                ? wildcardMatches(hostPattern, requestHost)
+                ? wildcardMatches(hostPattern.toLowerCase(Locale.US), requestHost)
                 : domainMatches(requestHost, hostPattern.toLowerCase(Locale.US));
         if (!hostMatches) {
             return false;
