@@ -166,6 +166,10 @@ public class MainActivity extends AppCompatActivity implements DrawerLayout.Draw
             filterService.checkFiltersUpdates(this);
             return true;
         }
+        if (item.getItemId() == R.id.open_advanced_browser) {
+            NavigationHelper.redirectToActivity(MainActivity.this, AdvancedBrowserActivity.class);
+            return true;
+        }
         return super.onOptionsItemSelected(item);
     }
 

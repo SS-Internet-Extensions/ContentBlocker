@@ -114,4 +114,7 @@
     <string name="back">Back</string>
     <string name="close">Close</string>
     <string name="import_dialog_hint">URL or path</string>
+    <string name="advanced_browser">Advanced Browser</string>
+    <string name="advanced_browser_hint">Enter URL</string>
+    <string name="advanced_browser_go">Go</string>
 </resources>
