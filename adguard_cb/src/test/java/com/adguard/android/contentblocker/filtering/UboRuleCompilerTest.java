@@ -65,6 +65,44 @@ public class UboRuleCompilerTest {
     }
 
     @Test
+    public void preservesExistingAdguardOptionsAndCustomOptions() {
+        assertEquals(
+                Arrays.asList("||ceespc.biz^$empty,important"),
+                compiler.compileAll(Arrays.asList("||ceespc.biz^$empty,important")));
+
+        assertEquals(
+                Arrays.asList("@@||photolessons.org^$generichide"),
+                compiler.compileAll(Arrays.asList("@@||photolessons.org^$generichide")));
+
+        assertEquals(
+                Arrays.asList("||sports.qq.com^$csp=media-src https: http:"),
+                compiler.compileAll(Arrays.asList("||sports.qq.com^$csp=media-src https: http:")));
+
+        assertEquals(
+                Arrays.asList("$cookie=has_adblock,domain=24smi.org"),
+                compiler.compileAll(Arrays.asList("$cookie=has_adblock,domain=24smi.org")));
+
+        assertEquals(
+                Arrays.asList("||example.com^$custom-option=value"),
+                compiler.compileAll(Arrays.asList("||example.com^$custom-option=value")));
+    }
+
+    @Test
+    public void preservesRegexAnchorsAndAdguardScriptInjectionRules() {
+        assertEquals(
+                Arrays.asList("/adserver\\d+\\.js$/"),
+                compiler.compileAll(Arrays.asList("/adserver\\d+\\.js$/")));
+
+        assertEquals(
+                Arrays.asList("/adserver\\d+\\.js$/$script,domain=example.com"),
+                compiler.compileAll(Arrays.asList("/adserver\\d+\\.js$/$script,domain=example.com")));
+
+        assertEquals(
+                Arrays.asList("example.com#%#window.canRunAds = true;"),
+                compiler.compileAll(Arrays.asList("example.com#%#window.canRunAds = true;")));
+    }
+
+    @Test
     public void commentsUnsupportedProceduralCosmeticFilters() {
         List<String> compiled = compiler.compileAll(Arrays.asList("example.com##:has-text(Sponsored)"));
 

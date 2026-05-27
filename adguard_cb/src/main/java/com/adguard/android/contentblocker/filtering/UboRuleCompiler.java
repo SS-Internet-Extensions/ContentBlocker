@@ -19,6 +19,7 @@ public final class UboRuleCompiler {
     private static final String ADBLOCK_META_START = "[Adblock";
     private static final String UBO_SCRIPTLET_MARKER = "##+js(";
     private static final String UBO_EXCEPTION_SCRIPTLET_MARKER = "#@#+js(";
+    private static final String ADGUARD_SCRIPT_INJECTION_MARKER = "#%#";
 
     private static final Set<String> PROCEDURAL_COSMETIC_MARKERS = new HashSet<>(Arrays.asList(
             ":has-text(",
@@ -26,31 +27,6 @@ public final class UboRuleCompiler {
             ":matches-css(",
             ":xpath(",
             ":watch-attr("));
-
-    private static final Set<String> PASS_THROUGH_OPTIONS = new HashSet<>(Arrays.asList(
-            "1p",
-            "3p",
-            "all",
-            "document",
-            "domain",
-            "elemhide",
-            "font",
-            "frame",
-            "image",
-            "media",
-            "object",
-            "other",
-            "ping",
-            "popup",
-            "removeparam",
-            "redirect",
-            "redirect-rule",
-            "script",
-            "stylesheet",
-            "subdocument",
-            "third-party",
-            "webrtc",
-            "xmlhttprequest"));
 
     private static final Map<String, String> SCRIPTLET_ALIASES = new HashMap<>();
 
@@ -102,10 +78,6 @@ public final class UboRuleCompiler {
 
         if (isCosmeticRule(rule)) {
             return CompileResult.supported(sourceRule, Collections.singletonList(rule));
-        }
-
-        if (!hasSupportedOptions(rule)) {
-            return CompileResult.unsupported(rule, "unsupported network option");
         }
 
         return CompileResult.supported(sourceRule, Collections.singletonList(rule));
@@ -194,38 +166,9 @@ public final class UboRuleCompiler {
                 StringUtils.contains(rule, "#@#") ||
                 StringUtils.contains(rule, "#$#") ||
                 StringUtils.contains(rule, "#@$#") ||
+                StringUtils.contains(rule, ADGUARD_SCRIPT_INJECTION_MARKER) ||
                 StringUtils.contains(rule, "$$") ||
                 StringUtils.contains(rule, "$@$");
-    }
-
-    private static boolean hasSupportedOptions(String rule) {
-        int optionsStart = rule.indexOf('$');
-        if (optionsStart < 0 || optionsStart == rule.length() - 1) {
-            return true;
-        }
-
-        String options = rule.substring(optionsStart + 1);
-        String[] optionParts = StringUtils.split(options, ',');
-        if (optionParts == null) {
-            return true;
-        }
-
-        for (String optionPart : optionParts) {
-            String option = StringUtils.trimToEmpty(optionPart);
-            if (StringUtils.startsWith(option, "~")) {
-                option = option.substring(1);
-            }
-
-            int valueStart = option.indexOf('=');
-            String optionName = valueStart >= 0 ? option.substring(0, valueStart) : option;
-            optionName = optionName.toLowerCase(Locale.US);
-
-            if (!PASS_THROUGH_OPTIONS.contains(optionName)) {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     private static String escapeSingleQuotes(String value) {

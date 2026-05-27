@@ -320,7 +320,7 @@ public class FilterServiceImpl implements FilterService {
 
     @Override
     public void applyNewSettings() {
-        List<String> rules = uboRuleCompiler.compileAll(getAllEnabledRules());
+        List<String> rules = getAllEnabledRules();
 
         List<String> userRules = StringHelperUtils.splitAndTrim(preferencesService.getUserRules(), "\n");
         Set<String> disabledUserRules = preferencesService.getDisabledUserRules();
@@ -334,14 +334,14 @@ public class FilterServiceImpl implements FilterService {
         Set<String> disabledWhitelistRules = preferencesService.getDisabledWhitelistRules();
         for (String whitelistRule : whitelistRules) {
             if (!disabledWhitelistRules.contains(whitelistRule)) {
-                rules.addAll(uboRuleCompiler.compile(createWhiteListRule(whitelistRule)).getCompiledRules());
+                rules.add(createWhiteListRule(whitelistRule));
 
                 /**
                  * Add these rules, because the Ya Browser does not support the $document modifier
                  */
                 // TODO Should remove this after the Ya Browser browser add support $document modifier
-                rules.addAll(uboRuleCompiler.compile(String.format("@@http*$domain=%s", whitelistRule)).getCompiledRules());
-                rules.addAll(uboRuleCompiler.compile(String.format("@@||%s^$elemhide", whitelistRule)).getCompiledRules());
+                rules.add(String.format("@@http*$domain=%s", whitelistRule));
+                rules.add(String.format("@@||%s^$elemhide", whitelistRule));
             }
         }
 

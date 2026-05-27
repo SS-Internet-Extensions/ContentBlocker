@@ -30,7 +30,7 @@ This app accepts common uBlock Origin-style static filter syntax in user rules a
 Supported compatibility categories:
 
 - Network URL patterns: plain patterns, wildcard patterns, hostname anchors such as `||example.com^`, and regex-delimited rules such as `/adserver\d+\.js/`.
-- Context options: common request type and context options such as `$script`, `$image`, `$stylesheet`, `$third-party`, `$domain=...`, `$popup`, `$redirect=...`, and `$removeparam=...`.
+- Context options: common request type and context options such as `$script`, `$image`, `$stylesheet`, `$third-party`, `$domain=...`, `$popup`, `$redirect=...`, and `$removeparam=...`. Custom and engine-specific network options are preserved so custom filters are not disabled by the compatibility layer.
 - Cosmetic filters: standard CSS selector hiding and exceptions such as `example.com##.ad` and `example.com#@#.ad`.
 - Scriptlet aliases: common uBO `##+js(...)` aliases are converted to AdGuard scriptlet syntax for `set`, `set-constant`, `aopr`, `abort-on-property-read`, `aopw`, `abort-on-property-write`, `acis`, `abort-current-inline-script`, `ra`, `remove-attr`, `rc`, and `remove-class`.
 
