@@ -7,6 +7,9 @@ import java.util.Locale;
 public final class ProceduralCosmeticScriptBuilder {
 
     private static final String HAS_TEXT_MARKER = ":has-text(";
+    private static final String MATCHES_ATTR_MARKER = ":matches-attr(";
+    private static final String MATCHES_CSS_MARKER = ":matches-css(";
+    private static final String XPATH_MARKER = ":xpath(";
 
     public String build(List<AdvancedRule> rules) {
         return build(rules, "");
@@ -20,6 +23,22 @@ public final class ProceduralCosmeticScriptBuilder {
         script.append("for(var i=0;i<nodes.length;i++){var node=nodes[i];");
         script.append("if(node&&node.textContent&&node.textContent.indexOf(text)!==-1){");
         script.append("node.style.setProperty('display','none','important');}}}\n");
+        script.append("function hideMatchesAttr(selector,name,value){var nodes;try{nodes=document.querySelectorAll(selector||'*');}");
+        script.append("catch(e){nodes=document.getElementsByTagName('*');}");
+        script.append("var matcher=value?new RegExp(value):null;");
+        script.append("for(var i=0;i<nodes.length;i++){var node=nodes[i];if(!node||!node.getAttribute){continue;}");
+        script.append("var attr=node.getAttribute(name);if(attr!==null&&(!matcher||matcher.test(attr))){");
+        script.append("node.style.setProperty('display','none','important');}}}\n");
+        script.append("function hideMatchesCss(selector,name,value){var nodes;try{nodes=document.querySelectorAll(selector||'*');}");
+        script.append("catch(e){nodes=document.getElementsByTagName('*');}");
+        script.append("var matcher=value?new RegExp(value):null;");
+        script.append("for(var i=0;i<nodes.length;i++){var node=nodes[i];if(!node){continue;}");
+        script.append("var style=window.getComputedStyle?window.getComputedStyle(node):null;");
+        script.append("var css=style?style.getPropertyValue(name):'';if(css&&(!matcher||matcher.test(css))){");
+        script.append("node.style.setProperty('display','none','important');}}}\n");
+        script.append("function hideXpath(xpath){try{var result=document.evaluate(xpath,document,null,XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,null);");
+        script.append("for(var i=0;i<result.snapshotLength;i++){var node=result.snapshotItem(i);");
+        script.append("if(node&&node.style){node.style.setProperty('display','none','important');}}}catch(e){}}\n");
         script.append("function applyProceduralCosmetics(){\n");
 
         if (rules != null) {
@@ -40,19 +59,41 @@ public final class ProceduralCosmeticScriptBuilder {
     }
 
     private static void appendRule(StringBuilder script, AdvancedRule rule) {
-        HasTextRule parsed = parseHasTextRule(rule);
+        ProceduralRule parsed = parseRule(rule);
         if (parsed == null) {
             return;
         }
 
-        script.append("hideHasText('");
-        script.append(escapeJsString(parsed.cssSelector));
-        script.append("','");
-        script.append(escapeJsString(parsed.text));
-        script.append("');\n");
+        if (parsed.type == ProceduralRule.TYPE_HAS_TEXT) {
+            script.append("hideHasText('");
+            script.append(escapeJsString(parsed.cssSelector));
+            script.append("','");
+            script.append(escapeJsString(parsed.firstValue));
+            script.append("');\n");
+        } else if (parsed.type == ProceduralRule.TYPE_MATCHES_ATTR) {
+            script.append("hideMatchesAttr('");
+            script.append(escapeJsString(parsed.cssSelector));
+            script.append("','");
+            script.append(escapeJsString(parsed.firstValue));
+            script.append("','");
+            script.append(escapeJsString(parsed.secondValue));
+            script.append("');\n");
+        } else if (parsed.type == ProceduralRule.TYPE_MATCHES_CSS) {
+            script.append("hideMatchesCss('");
+            script.append(escapeJsString(parsed.cssSelector));
+            script.append("','");
+            script.append(escapeJsString(parsed.firstValue));
+            script.append("','");
+            script.append(escapeJsString(parsed.secondValue));
+            script.append("');\n");
+        } else if (parsed.type == ProceduralRule.TYPE_XPATH) {
+            script.append("hideXpath('");
+            script.append(escapeJsString(parsed.firstValue));
+            script.append("');\n");
+        }
     }
 
-    private static HasTextRule parseHasTextRule(AdvancedRule rule) {
+    private static ProceduralRule parseRule(AdvancedRule rule) {
         if (rule == null || rule.getType() != AdvancedRuleType.PROCEDURAL_COSMETIC) {
             return null;
         }
@@ -65,14 +106,19 @@ public final class ProceduralCosmeticScriptBuilder {
             selector = selector.substring(2);
         }
 
-        int markerStart = selector.indexOf(HAS_TEXT_MARKER);
+        ProceduralMarker marker = proceduralMarker(selector);
+        if (marker == null) {
+            return null;
+        }
+
+        int markerStart = selector.indexOf(marker.marker);
         if (markerStart < 0) {
             return null;
         }
 
-        int textStart = markerStart + HAS_TEXT_MARKER.length();
-        int textEnd = selector.lastIndexOf(')');
-        if (textEnd < textStart) {
+        int valueStart = markerStart + marker.marker.length();
+        int valueEnd = selector.lastIndexOf(')');
+        if (valueEnd < valueStart) {
             return null;
         }
 
@@ -80,8 +126,42 @@ public final class ProceduralCosmeticScriptBuilder {
         if (cssSelector.length() == 0) {
             cssSelector = "*";
         }
-        String text = unquote(trimToEmpty(selector.substring(textStart, textEnd)));
-        return new HasTextRule(cssSelector, text);
+        String value = unquote(trimToEmpty(selector.substring(valueStart, valueEnd)));
+
+        if (marker.type == ProceduralRule.TYPE_HAS_TEXT) {
+            return new ProceduralRule(marker.type, cssSelector, value, "");
+        }
+        if (marker.type == ProceduralRule.TYPE_XPATH) {
+            return new ProceduralRule(marker.type, cssSelector, value, "");
+        }
+
+        String first = value;
+        String second = "";
+        int separator = value.indexOf('=');
+        if (separator < 0) {
+            separator = value.indexOf(':');
+        }
+        if (separator >= 0) {
+            first = trimToEmpty(value.substring(0, separator));
+            second = trimToEmpty(value.substring(separator + 1));
+        }
+        return new ProceduralRule(marker.type, cssSelector, unquote(first), unquote(second));
+    }
+
+    private static ProceduralMarker proceduralMarker(String selector) {
+        if (selector.indexOf(HAS_TEXT_MARKER) >= 0) {
+            return new ProceduralMarker(HAS_TEXT_MARKER, ProceduralRule.TYPE_HAS_TEXT);
+        }
+        if (selector.indexOf(MATCHES_ATTR_MARKER) >= 0) {
+            return new ProceduralMarker(MATCHES_ATTR_MARKER, ProceduralRule.TYPE_MATCHES_ATTR);
+        }
+        if (selector.indexOf(MATCHES_CSS_MARKER) >= 0) {
+            return new ProceduralMarker(MATCHES_CSS_MARKER, ProceduralRule.TYPE_MATCHES_CSS);
+        }
+        if (selector.indexOf(XPATH_MARKER) >= 0) {
+            return new ProceduralMarker(XPATH_MARKER, ProceduralRule.TYPE_XPATH);
+        }
+        return null;
     }
 
     private static String unquote(String value) {
@@ -152,13 +232,32 @@ public final class ProceduralCosmeticScriptBuilder {
         return value == null ? "" : value.trim();
     }
 
-    private static final class HasTextRule {
-        private final String cssSelector;
-        private final String text;
+    private static final class ProceduralMarker {
+        private final String marker;
+        private final int type;
 
-        private HasTextRule(String cssSelector, String text) {
+        private ProceduralMarker(String marker, int type) {
+            this.marker = marker;
+            this.type = type;
+        }
+    }
+
+    private static final class ProceduralRule {
+        private static final int TYPE_HAS_TEXT = 1;
+        private static final int TYPE_MATCHES_ATTR = 2;
+        private static final int TYPE_MATCHES_CSS = 3;
+        private static final int TYPE_XPATH = 4;
+
+        private final int type;
+        private final String cssSelector;
+        private final String firstValue;
+        private final String secondValue;
+
+        private ProceduralRule(int type, String cssSelector, String firstValue, String secondValue) {
+            this.type = type;
             this.cssSelector = cssSelector;
-            this.text = text;
+            this.firstValue = firstValue;
+            this.secondValue = secondValue;
         }
     }
 }

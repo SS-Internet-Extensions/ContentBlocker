@@ -24,6 +24,7 @@ import com.adguard.android.contentblocker.filtering.advanced.FilterDecision;
 import com.adguard.android.contentblocker.filtering.advanced.ProceduralCosmeticScriptBuilder;
 import com.adguard.android.contentblocker.filtering.advanced.RequestContext;
 import com.adguard.android.contentblocker.filtering.advanced.ScriptletScriptBuilder;
+import com.adguard.android.contentblocker.filtering.advanced.StaticCosmeticScriptBuilder;
 import com.adguard.android.contentblocker.filtering.advanced.TrackingParameterCleaner;
 
 import java.io.ByteArrayInputStream;
@@ -37,6 +38,7 @@ public class AdvancedBrowserActivity extends AppCompatActivity {
     private AdvancedRuleEngine engine;
     private TrackingParameterCleaner trackingParameterCleaner;
     private final ScriptletScriptBuilder scriptletScriptBuilder = new ScriptletScriptBuilder();
+    private final StaticCosmeticScriptBuilder staticCosmeticScriptBuilder = new StaticCosmeticScriptBuilder();
     private final ProceduralCosmeticScriptBuilder proceduralCosmeticScriptBuilder = new ProceduralCosmeticScriptBuilder();
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -170,6 +172,7 @@ public class AdvancedBrowserActivity extends AppCompatActivity {
         @Override
         public void onPageFinished(WebView view, String url) {
             urlEditText.setText(url);
+            view.evaluateJavascript(staticCosmeticScriptBuilder.build(ruleSet.getCosmeticRules(), url), null);
             view.evaluateJavascript(scriptletScriptBuilder.build(ruleSet.getScriptletRules(), url), null);
             view.evaluateJavascript(proceduralCosmeticScriptBuilder.build(ruleSet.getProceduralCosmeticRules(), url), null);
         }

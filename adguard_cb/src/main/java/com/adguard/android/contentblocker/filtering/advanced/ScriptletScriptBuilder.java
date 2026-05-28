@@ -27,10 +27,24 @@ public final class ScriptletScriptBuilder {
         script.append("function abortOnPropertyWrite(path){var target=getScriptletTarget(path);");
         script.append("Object.defineProperty(target.owner,target.prop,{configurable:true,");
         script.append("set:function(){throw new ReferenceError('Blocked property write');}});}\n");
+        script.append("function removeAttr(name,selector){var nodes;try{nodes=document.querySelectorAll(selector||'*');}");
+        script.append("catch(e){nodes=document.getElementsByTagName('*');}");
+        script.append("for(var i=0;i<nodes.length;i++){var node=nodes[i];");
+        script.append("if(node&&node.removeAttribute){node.removeAttribute(name);}}}\n");
+        script.append("function removeClass(name,selector){var nodes;try{nodes=document.querySelectorAll(selector||'*');}");
+        script.append("catch(e){nodes=document.getElementsByTagName('*');}");
+        script.append("for(var i=0;i<nodes.length;i++){var node=nodes[i];");
+        script.append("if(node&&node.classList){node.classList.remove(name);}}}\n");
+        script.append("function observeScriptlet(fn){fn();if(typeof MutationObserver!=='undefined'){");
+        script.append("new MutationObserver(fn).observe(document.documentElement||document,{childList:true,subtree:true,attributes:true});}}\n");
+        script.append("function abortCurrentInlineScript(path,token){var target=getScriptletTarget(path);var value=target.owner[target.prop];");
+        script.append("Object.defineProperty(target.owner,target.prop,{configurable:true,get:function(){");
+        script.append("var script=document.currentScript;if(script&&token&&(script.textContent||'').indexOf(token)!==-1){");
+        script.append("throw new ReferenceError('Blocked inline script');}return value;},set:function(next){value=next;}});}\n");
 
         if (rules != null) {
             for (AdvancedRule rule : rules) {
-                if (domainPrefixMatches(rule, pageUrl)) {
+                if (!rule.isException() && domainPrefixMatches(rule, pageUrl) && !hasScriptletException(rule, rules, pageUrl)) {
                     appendRule(script, rule);
                 }
             }
@@ -53,6 +67,12 @@ public final class ScriptletScriptBuilder {
             appendAbortOnPropertyRead(script, args);
         } else if ("abort-on-property-write".equals(scriptletName)) {
             appendAbortOnPropertyWrite(script, args);
+        } else if ("remove-attr".equals(scriptletName)) {
+            appendRemoveAttr(script, args);
+        } else if ("remove-class".equals(scriptletName)) {
+            appendRemoveClass(script, args);
+        } else if ("abort-current-inline-script".equals(scriptletName)) {
+            appendAbortCurrentInlineScript(script, args);
         }
     }
 
@@ -78,6 +98,42 @@ public final class ScriptletScriptBuilder {
         script.append("');}catch(e){}\n");
     }
 
+    private static void appendRemoveAttr(StringBuilder script, List<String> args) {
+        if (args.isEmpty()) {
+            return;
+        }
+
+        script.append("try{observeScriptlet(function(){removeAttr('");
+        script.append(escapeJsString(args.get(0)));
+        script.append("','");
+        script.append(escapeJsString(args.size() > 1 ? args.get(1) : "*"));
+        script.append("');});}catch(e){}\n");
+    }
+
+    private static void appendRemoveClass(StringBuilder script, List<String> args) {
+        if (args.isEmpty()) {
+            return;
+        }
+
+        script.append("try{observeScriptlet(function(){removeClass('");
+        script.append(escapeJsString(args.get(0)));
+        script.append("','");
+        script.append(escapeJsString(args.size() > 1 ? args.get(1) : "*"));
+        script.append("');});}catch(e){}\n");
+    }
+
+    private static void appendAbortCurrentInlineScript(StringBuilder script, List<String> args) {
+        if (args.size() < 2) {
+            return;
+        }
+
+        script.append("try{abortCurrentInlineScript('");
+        script.append(escapeJsString(args.get(0)));
+        script.append("','");
+        script.append(escapeJsString(args.get(1)));
+        script.append("');}catch(e){}\n");
+    }
+
     private static void appendAbortOnPropertyWrite(StringBuilder script, List<String> args) {
         if (args.isEmpty()) {
             return;
@@ -98,6 +154,15 @@ public final class ScriptletScriptBuilder {
         }
         if ("aopw".equals(value)) {
             return "abort-on-property-write";
+        }
+        if ("ra".equals(value)) {
+            return "remove-attr";
+        }
+        if ("rc".equals(value)) {
+            return "remove-class";
+        }
+        if ("acis".equals(value)) {
+            return "abort-current-inline-script";
         }
         return value;
     }
@@ -151,6 +216,18 @@ public final class ScriptletScriptBuilder {
             }
         }
         return !hasIncludedDomains || includedDomainMatches;
+    }
+
+    private static boolean hasScriptletException(AdvancedRule rule, List<AdvancedRule> rules, String pageUrl) {
+        for (AdvancedRule candidate : rules) {
+            if (candidate.isException() &&
+                    domainPrefixMatches(candidate, pageUrl) &&
+                    normalizeName(candidate.getScriptletName()).equals(normalizeName(rule.getScriptletName())) &&
+                    candidate.getScriptletArgs().equals(rule.getScriptletArgs())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean domainMatches(String host, String domain) {
