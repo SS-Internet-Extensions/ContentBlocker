@@ -23,6 +23,7 @@ import com.adguard.android.contentblocker.filtering.advanced.AdvancedRuntimeRepo
 import com.adguard.android.contentblocker.filtering.advanced.FilterDecision;
 import com.adguard.android.contentblocker.filtering.advanced.ProceduralCosmeticScriptBuilder;
 import com.adguard.android.contentblocker.filtering.advanced.RequestContext;
+import com.adguard.android.contentblocker.filtering.advanced.RedirectResource;
 import com.adguard.android.contentblocker.filtering.advanced.ScriptletScriptBuilder;
 import com.adguard.android.contentblocker.filtering.advanced.StaticCosmeticScriptBuilder;
 import com.adguard.android.contentblocker.filtering.advanced.TrackingParameterCleaner;
@@ -101,6 +102,13 @@ public class AdvancedBrowserActivity extends AppCompatActivity {
         return new WebResourceResponse(mimeType, "UTF-8", new ByteArrayInputStream(new byte[0]));
     }
 
+    private static WebResourceResponse redirectResponse(RedirectResource resource) {
+        return new WebResourceResponse(
+                resource.getMimeType(),
+                resource.getEncoding(),
+                new ByteArrayInputStream(resource.getBody()));
+    }
+
     @Override
     public boolean onSupportNavigateUp() {
         finish();
@@ -156,14 +164,10 @@ public class AdvancedBrowserActivity extends AppCompatActivity {
                     view.getUrl(),
                     request.isForMainFrame(),
                     acceptHeader(request)));
-            if (decision.getAction() == FilterDecision.Action.REDIRECT_NOOP_JS) {
-                return emptyResponse("application/javascript");
+            if (decision.getAction() == FilterDecision.Action.REDIRECT) {
+                return redirectResponse(decision.getRedirectResource());
             }
-            if (decision.getAction() == FilterDecision.Action.REDIRECT_NOOP_CSS) {
-                return emptyResponse("text/css");
-            }
-            if (decision.getAction() == FilterDecision.Action.REDIRECT_EMPTY ||
-                    decision.getAction() == FilterDecision.Action.BLOCK) {
+            if (decision.getAction() == FilterDecision.Action.BLOCK) {
                 return emptyResponse("text/plain");
             }
             return super.shouldInterceptRequest(view, request);

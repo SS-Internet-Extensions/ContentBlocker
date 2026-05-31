@@ -43,14 +43,7 @@ public final class AdvancedRuleEngine {
     private FilterDecision firstMatchingDecision(RequestContext context, boolean importantOnly) {
         for (AdvancedRule rule : rules.getRedirectRules()) {
             if (!rule.isException() && (!importantOnly || rule.isImportant()) && matches(rule, context)) {
-                String options = rule.getOptionText();
-                if (options.contains("noopcss")) {
-                    return FilterDecision.of(FilterDecision.Action.REDIRECT_NOOP_CSS, rule);
-                }
-                if (options.contains("noopjs")) {
-                    return FilterDecision.of(FilterDecision.Action.REDIRECT_NOOP_JS, rule);
-                }
-                return FilterDecision.of(FilterDecision.Action.REDIRECT_EMPTY, rule);
+                return FilterDecision.redirect(rule, RedirectResource.fromRule(rule));
             }
         }
 

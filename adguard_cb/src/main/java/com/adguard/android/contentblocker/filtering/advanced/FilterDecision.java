@@ -5,25 +5,29 @@ public final class FilterDecision {
     public enum Action {
         ALLOW,
         BLOCK,
-        REDIRECT_NOOP_JS,
-        REDIRECT_NOOP_CSS,
-        REDIRECT_EMPTY
+        REDIRECT
     }
 
     private final Action action;
     private final AdvancedRule rule;
+    private final RedirectResource redirectResource;
 
-    private FilterDecision(Action action, AdvancedRule rule) {
+    private FilterDecision(Action action, AdvancedRule rule, RedirectResource redirectResource) {
         this.action = action;
         this.rule = rule;
+        this.redirectResource = redirectResource;
     }
 
     public static FilterDecision allow() {
-        return new FilterDecision(Action.ALLOW, null);
+        return new FilterDecision(Action.ALLOW, null, null);
     }
 
     public static FilterDecision of(Action action, AdvancedRule rule) {
-        return new FilterDecision(action, rule);
+        return new FilterDecision(action, rule, null);
+    }
+
+    public static FilterDecision redirect(AdvancedRule rule, RedirectResource redirectResource) {
+        return new FilterDecision(Action.REDIRECT, rule, redirectResource);
     }
 
     public Action getAction() {
@@ -32,5 +36,9 @@ public final class FilterDecision {
 
     public AdvancedRule getRule() {
         return rule;
+    }
+
+    public RedirectResource getRedirectResource() {
+        return redirectResource;
     }
 }

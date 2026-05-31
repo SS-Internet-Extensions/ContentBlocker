@@ -5,6 +5,7 @@ import org.junit.Test;
 import java.util.Arrays;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 public class AdvancedRuleEngineTest {
 
@@ -16,7 +17,77 @@ public class AdvancedRuleEngineTest {
 
         FilterDecision decision = engine.evaluate("https://cdn.example.com/ads.js", "https://example.com");
 
-        assertEquals(FilterDecision.Action.REDIRECT_NOOP_JS, decision.getAction());
+        assertRedirect(decision, "noopjs", "application/javascript", 0);
+    }
+
+    @Test
+    public void redirectsToTextResource() {
+        AdvancedRuleSet rules = new AdvancedRuleCompiler().compile(Arrays.asList(
+                "||cdn.example.com/pixel.txt$redirect=nooptext"));
+        AdvancedRuleEngine engine = new AdvancedRuleEngine(rules);
+
+        FilterDecision decision = engine.evaluate("https://cdn.example.com/pixel.txt", "https://example.com");
+
+        assertRedirect(decision, "nooptext", "text/plain", 0);
+    }
+
+    @Test
+    public void redirectsToHtmlResource() {
+        AdvancedRuleSet rules = new AdvancedRuleCompiler().compile(Arrays.asList(
+                "||cdn.example.com/frame.html$subdocument,redirect=noophtml"));
+        AdvancedRuleEngine engine = new AdvancedRuleEngine(rules);
+
+        FilterDecision decision = engine.evaluate(new RequestContext(
+                "https://cdn.example.com/frame.html",
+                "https://example.com",
+                RequestContext.TYPE_SUBDOCUMENT,
+                false));
+
+        assertRedirect(decision, "noophtml", "text/html", 54);
+    }
+
+    @Test
+    public void redirectsToEmptyResource() {
+        AdvancedRuleSet rules = new AdvancedRuleCompiler().compile(Arrays.asList(
+                "||cdn.example.com/beacon$redirect=empty"));
+        AdvancedRuleEngine engine = new AdvancedRuleEngine(rules);
+
+        FilterDecision decision = engine.evaluate("https://cdn.example.com/beacon", "https://example.com");
+
+        assertRedirect(decision, "empty", "text/plain", 0);
+    }
+
+    @Test
+    public void redirectsToTransparentGifResource() {
+        AdvancedRuleSet rules = new AdvancedRuleCompiler().compile(Arrays.asList(
+                "||cdn.example.com/pixel.gif$image,redirect=1x1.gif"));
+        AdvancedRuleEngine engine = new AdvancedRuleEngine(rules);
+
+        FilterDecision decision = engine.evaluate("https://cdn.example.com/pixel.gif", "https://example.com");
+
+        assertRedirect(decision, "1x1.gif", "image/gif", 43);
+    }
+
+    @Test
+    public void supportsRedirectRuleOption() {
+        AdvancedRuleSet rules = new AdvancedRuleCompiler().compile(Arrays.asList(
+                "||cdn.example.com/style.css$stylesheet,redirect-rule=noopcss"));
+        AdvancedRuleEngine engine = new AdvancedRuleEngine(rules);
+
+        FilterDecision decision = engine.evaluate("https://cdn.example.com/style.css", "https://example.com");
+
+        assertRedirect(decision, "noopcss", "text/css", 0);
+    }
+
+    @Test
+    public void unknownRedirectFallsBackToEmptyTextResource() {
+        AdvancedRuleSet rules = new AdvancedRuleCompiler().compile(Arrays.asList(
+                "||cdn.example.com/resource$redirect=unknown-resource"));
+        AdvancedRuleEngine engine = new AdvancedRuleEngine(rules);
+
+        FilterDecision decision = engine.evaluate("https://cdn.example.com/resource", "https://example.com");
+
+        assertRedirect(decision, "unknown-resource", "text/plain", 0);
     }
 
     @Test
@@ -135,5 +206,13 @@ public class AdvancedRuleEngineTest {
 
         assertEquals(FilterDecision.Action.ALLOW, firstPartyDecision.getAction());
         assertEquals(FilterDecision.Action.BLOCK, thirdPartyDecision.getAction());
+    }
+
+    private static void assertRedirect(FilterDecision decision, String resourceName, String mimeType, int bodySize) {
+        assertEquals(FilterDecision.Action.REDIRECT, decision.getAction());
+        assertNotNull(decision.getRedirectResource());
+        assertEquals(resourceName, decision.getRedirectResource().getName());
+        assertEquals(mimeType, decision.getRedirectResource().getMimeType());
+        assertEquals(bodySize, decision.getRedirectResource().getBody().length);
     }
 }
