@@ -85,7 +85,7 @@ public class AdvancedBrowserActivity extends AppCompatActivity {
 
     private void loadUrl(String rawUrl) {
         String url = normalizeUrl(rawUrl);
-        String cleanUrl = trackingParameterCleaner.clean(url);
+        String cleanUrl = trackingParameterCleaner.clean(url, url);
         urlEditText.setText(cleanUrl);
         webView.loadUrl(cleanUrl);
     }
@@ -144,7 +144,7 @@ public class AdvancedBrowserActivity extends AppCompatActivity {
         @Override
         public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
             String currentUrl = view.getUrl();
-            String cleanUrl = trackingParameterCleaner.clean(request.getUrl().toString());
+            String cleanUrl = trackingParameterCleaner.clean(request.getUrl().toString(), currentUrl);
             if (engine.evaluatePopup(cleanUrl, currentUrl).getAction() == FilterDecision.Action.BLOCK) {
                 return true;
             }

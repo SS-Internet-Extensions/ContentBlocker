@@ -88,7 +88,7 @@ public final class AdvancedRuleEngine {
         return false;
     }
 
-    private static boolean matches(AdvancedRule rule, RequestContext context) {
+    static boolean matches(AdvancedRule rule, RequestContext context) {
         return contextMatches(rule, context) && patternMatches(rule.getPattern(), context.getRequestUrl());
     }
 
