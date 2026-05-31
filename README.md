@@ -25,20 +25,32 @@ AdGuard Content Blocker is a tool to block ads in browsers that support content 
 
 ## uBlock Origin filter compatibility
 
-This app accepts common uBlock Origin-style static filter syntax in user rules and imported lists, then normalizes supported rules before passing them to the Samsung/Yandex content-blocker engine.
+This app accepts common uBlock Origin-style static filter syntax in user rules and imported lists. There are two execution modes:
 
-Supported compatibility categories:
+- External browser mode exports normalized rules to Samsung Internet and Yandex Browser. In this mode the target browser's content-blocker engine decides which normalized network, redirect, popup, scriptlet, cosmetic, and parameter-removal rules can run.
+- Advanced Browser mode is the app's own WebView runtime. It evaluates a broader uBO-like subset directly inside the app and keeps a bounded diagnostics log of block, redirect, exception, parameter-removal, cosmetic, and scriptlet decisions.
+
+Supported compatibility categories in the export path:
 
 - Network URL patterns: plain patterns, wildcard patterns, hostname anchors such as `||example.com^`, and regex-delimited rules such as `/adserver\d+\.js/`.
 - Context options: common request type and context options such as `$script`, `$image`, `$stylesheet`, `$third-party`, `$domain=...`, `$popup`, `$redirect=...`, and `$removeparam=...`. Custom and engine-specific network options are preserved so custom filters are not disabled by the compatibility layer.
 - Cosmetic filters: standard CSS selector hiding and exceptions such as `example.com##.ad` and `example.com#@#.ad`.
 - Scriptlet aliases: common uBO `##+js(...)` aliases are converted to AdGuard scriptlet syntax for `set`, `set-constant`, `aopr`, `abort-on-property-read`, `aopw`, `abort-on-property-write`, `acis`, `abort-current-inline-script`, `ra`, `remove-attr`, `rc`, and `remove-class`.
 
+Advanced Browser adds best-effort runtime support for:
+
+- `$important`, `$badfilter`, exception rules, request type matching, `$third-party`, `$~third-party`, and `$domain=...` context.
+- `$redirect=` and `$redirect-rule=` resources such as `noopjs`, `noopcss`, `nooptext`, `noophtml`, `empty`, and transparent `1x1.gif`.
+- `$popup` navigation blocking inside the WebView.
+- `$removeparam=` with request-pattern and page-domain context, exception rules, exact parameter names, wildcard names, and regex names.
+- Static cosmetic filtering, procedural cosmetic filters for `:has-text`, `:matches-attr`, `:matches-css`, and `:xpath`, and common safe scriptlets including remove-attr/remove-class and abort-on-property-read/write/current-inline-script.
+
 Runtime limitations:
 
 - The app is a content-blocker provider. It does not run a browser extension runtime and cannot directly inspect browser tabs, close popup windows, rewrite browser requests, or inject JavaScript by itself.
 - Redirect, popup, scriptlet, and tracking-parameter removal rules work only when the target browser's content-blocker engine supports the normalized rule syntax.
 - Unsupported procedural cosmetic filters and unknown scriptlets are written as `! ubo-unsupported: ...` comments in `filters.txt` instead of being silently dropped.
+- Full uBO dynamic filtering UI, per-site switches UI, CSP/header mutation, and HTML response filtering are deferred until the app has browser/request APIs that can support those behaviors correctly.
 
 To get more information and to download AdGuard Content Blocker, visit our website [https://adguard.com/](https://adguard.com/adguard-content-blocker/overview.html).
 

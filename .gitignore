@@ -11,3 +11,4 @@
 *.keystore
 *additional.gradle
 /docs/superpowers/plans/
+/.verify/
