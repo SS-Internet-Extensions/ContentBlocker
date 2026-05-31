@@ -10,9 +10,15 @@ import java.util.regex.PatternSyntaxException;
 public final class TrackingParameterCleaner {
 
     private final AdvancedRuleSet rules;
+    private final AdvancedFilterLogger logger;
 
     public TrackingParameterCleaner(AdvancedRuleSet rules) {
+        this(rules, null);
+    }
+
+    public TrackingParameterCleaner(AdvancedRuleSet rules, AdvancedFilterLogger logger) {
         this.rules = rules;
+        this.logger = logger;
     }
 
     public String clean(String url) {
@@ -69,36 +75,69 @@ public final class TrackingParameterCleaner {
 
     private boolean shouldRemove(String parameterName, RequestContext context) {
         String decodedName = decode(parameterName);
-        if (hasMatchingRemoval(parameterName, decodedName, context, true)) {
+        AdvancedRule importantRemoval = matchingRemoval(parameterName, decodedName, context, true);
+        if (importantRemoval != null) {
+            recordRemoveparam(importantRemoval, parameterName, context);
             return true;
         }
-        if (hasMatchingException(parameterName, decodedName, context)) {
+        AdvancedRule exception = matchingException(parameterName, decodedName, context);
+        if (exception != null) {
+            recordException(exception, parameterName, context);
             return false;
         }
-        return hasMatchingRemoval(parameterName, decodedName, context, false);
+        AdvancedRule removal = matchingRemoval(parameterName, decodedName, context, false);
+        if (removal != null) {
+            recordRemoveparam(removal, parameterName, context);
+            return true;
+        }
+        return false;
     }
 
-    private boolean hasMatchingRemoval(String parameterName, String decodedName, RequestContext context, boolean importantOnly) {
+    private AdvancedRule matchingRemoval(String parameterName, String decodedName, RequestContext context, boolean importantOnly) {
         for (AdvancedRule rule : rules.getRemoveparamRules()) {
             if (!rule.isException() &&
                     (!importantOnly || rule.isImportant()) &&
                     AdvancedRuleEngine.matches(rule, context) &&
                     parameterMatches(rule.getOptionValue("removeparam"), parameterName, decodedName)) {
-                return true;
+                return rule;
             }
         }
-        return false;
+        return null;
     }
 
-    private boolean hasMatchingException(String parameterName, String decodedName, RequestContext context) {
+    private AdvancedRule matchingException(String parameterName, String decodedName, RequestContext context) {
         for (AdvancedRule rule : rules.getRemoveparamRules()) {
             if (rule.isException() &&
                     AdvancedRuleEngine.matches(rule, context) &&
                     parameterMatches(rule.getOptionValue("removeparam"), parameterName, decodedName)) {
-                return true;
+                return rule;
             }
         }
-        return false;
+        return null;
+    }
+
+    private void recordRemoveparam(AdvancedRule rule, String parameterName, RequestContext context) {
+        if (logger == null) {
+            return;
+        }
+        logger.record(new AdvancedFilterEvent(
+                AdvancedFilterEvent.Type.REMOVEPARAM,
+                context.getRequestUrl(),
+                context.getPageUrl(),
+                rule.getOriginalRule(),
+                parameterName));
+    }
+
+    private void recordException(AdvancedRule rule, String parameterName, RequestContext context) {
+        if (logger == null) {
+            return;
+        }
+        logger.record(new AdvancedFilterEvent(
+                AdvancedFilterEvent.Type.ALLOW_EXCEPTION,
+                context.getRequestUrl(),
+                context.getPageUrl(),
+                rule.getOriginalRule(),
+                parameterName));
     }
 
     private static boolean parameterMatches(String configured, String parameterName, String decodedName) {

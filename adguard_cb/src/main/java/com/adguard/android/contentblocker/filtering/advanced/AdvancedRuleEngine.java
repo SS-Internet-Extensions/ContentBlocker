@@ -8,6 +8,7 @@ import java.util.regex.PatternSyntaxException;
 public final class AdvancedRuleEngine {
 
     private final AdvancedRuleSet rules;
+    private final AdvancedFilterLogger logger;
     private static final String[] RESOURCE_TYPE_OPTIONS = new String[]{
             "script",
             "image",
@@ -19,7 +20,12 @@ public final class AdvancedRuleEngine {
     };
 
     public AdvancedRuleEngine(AdvancedRuleSet rules) {
+        this(rules, null);
+    }
+
+    public AdvancedRuleEngine(AdvancedRuleSet rules, AdvancedFilterLogger logger) {
         this.rules = rules;
+        this.logger = logger;
     }
 
     public FilterDecision evaluate(String requestUrl, String pageUrl) {
@@ -29,15 +35,22 @@ public final class AdvancedRuleEngine {
     public FilterDecision evaluate(RequestContext context) {
         FilterDecision importantDecision = firstMatchingDecision(context, true);
         if (importantDecision.getAction() != FilterDecision.Action.ALLOW) {
+            recordDecision(importantDecision, context);
             return importantDecision;
         }
 
-        if (hasMatchingException(context, rules.getRedirectRules()) ||
-                hasMatchingException(context, rules.getNetworkRules())) {
+        AdvancedRule exception = firstMatchingException(context, rules.getRedirectRules());
+        if (exception == null) {
+            exception = firstMatchingException(context, rules.getNetworkRules());
+        }
+        if (exception != null) {
+            recordException(exception, context);
             return FilterDecision.allow();
         }
 
-        return firstMatchingDecision(context, false);
+        FilterDecision decision = firstMatchingDecision(context, false);
+        recordDecision(decision, context);
+        return decision;
     }
 
     private FilterDecision firstMatchingDecision(RequestContext context, boolean importantOnly) {
@@ -63,29 +76,66 @@ public final class AdvancedRuleEngine {
     public FilterDecision evaluatePopup(RequestContext context) {
         for (AdvancedRule rule : rules.getPopupRules()) {
             if (!rule.isException() && rule.isImportant() && matches(rule, context)) {
-                return FilterDecision.of(FilterDecision.Action.BLOCK, rule);
+                FilterDecision decision = FilterDecision.of(FilterDecision.Action.BLOCK, rule);
+                recordDecision(decision, context);
+                return decision;
             }
         }
 
-        if (hasMatchingException(context, rules.getPopupRules())) {
+        AdvancedRule exception = firstMatchingException(context, rules.getPopupRules());
+        if (exception != null) {
+            recordException(exception, context);
             return FilterDecision.allow();
         }
 
         for (AdvancedRule rule : rules.getPopupRules()) {
             if (!rule.isException() && matches(rule, context)) {
-                return FilterDecision.of(FilterDecision.Action.BLOCK, rule);
+                FilterDecision decision = FilterDecision.of(FilterDecision.Action.BLOCK, rule);
+                recordDecision(decision, context);
+                return decision;
             }
         }
         return FilterDecision.allow();
     }
 
-    private static boolean hasMatchingException(RequestContext context, Iterable<AdvancedRule> rules) {
+    private static AdvancedRule firstMatchingException(RequestContext context, Iterable<AdvancedRule> rules) {
         for (AdvancedRule rule : rules) {
             if (rule.isException() && matches(rule, context)) {
-                return true;
+                return rule;
             }
         }
-        return false;
+        return null;
+    }
+
+    private void recordDecision(FilterDecision decision, RequestContext context) {
+        if (logger == null || decision.getAction() == FilterDecision.Action.ALLOW) {
+            return;
+        }
+
+        AdvancedFilterEvent.Type type = decision.getAction() == FilterDecision.Action.REDIRECT
+                ? AdvancedFilterEvent.Type.REDIRECT
+                : AdvancedFilterEvent.Type.BLOCK;
+        String detail = decision.getAction() == FilterDecision.Action.REDIRECT && decision.getRedirectResource() != null
+                ? decision.getRedirectResource().getName()
+                : context.getResourceType();
+        logger.record(new AdvancedFilterEvent(
+                type,
+                context.getRequestUrl(),
+                context.getPageUrl(),
+                decision.getRule() == null ? "" : decision.getRule().getOriginalRule(),
+                detail));
+    }
+
+    private void recordException(AdvancedRule rule, RequestContext context) {
+        if (logger == null) {
+            return;
+        }
+        logger.record(new AdvancedFilterEvent(
+                AdvancedFilterEvent.Type.ALLOW_EXCEPTION,
+                context.getRequestUrl(),
+                context.getPageUrl(),
+                rule.getOriginalRule(),
+                rule.getType().name()));
     }
 
     static boolean matches(AdvancedRule rule, RequestContext context) {

@@ -19,6 +19,8 @@ import com.adguard.android.contentblocker.R;
 import com.adguard.android.contentblocker.ServiceLocator;
 import com.adguard.android.contentblocker.filtering.advanced.AdvancedRuleEngine;
 import com.adguard.android.contentblocker.filtering.advanced.AdvancedRuleSet;
+import com.adguard.android.contentblocker.filtering.advanced.AdvancedFilterEvent;
+import com.adguard.android.contentblocker.filtering.advanced.AdvancedFilterLogger;
 import com.adguard.android.contentblocker.filtering.advanced.AdvancedRuntimeRepository;
 import com.adguard.android.contentblocker.filtering.advanced.FilterDecision;
 import com.adguard.android.contentblocker.filtering.advanced.ProceduralCosmeticScriptBuilder;
@@ -37,6 +39,7 @@ public class AdvancedBrowserActivity extends AppCompatActivity {
     private EditText urlEditText;
     private AdvancedRuleSet ruleSet;
     private AdvancedRuleEngine engine;
+    private AdvancedFilterLogger advancedFilterLogger;
     private TrackingParameterCleaner trackingParameterCleaner;
     private final ScriptletScriptBuilder scriptletScriptBuilder = new ScriptletScriptBuilder();
     private final StaticCosmeticScriptBuilder staticCosmeticScriptBuilder = new StaticCosmeticScriptBuilder();
@@ -55,8 +58,9 @@ public class AdvancedBrowserActivity extends AppCompatActivity {
 
         ServiceLocator serviceLocator = ServiceLocator.getInstance(getApplicationContext());
         ruleSet = new AdvancedRuntimeRepository(serviceLocator.getFilterService(), serviceLocator.getPreferencesService()).load();
-        engine = new AdvancedRuleEngine(ruleSet);
-        trackingParameterCleaner = new TrackingParameterCleaner(ruleSet);
+        advancedFilterLogger = new AdvancedFilterLogger(256);
+        engine = new AdvancedRuleEngine(ruleSet, advancedFilterLogger);
+        trackingParameterCleaner = new TrackingParameterCleaner(ruleSet, advancedFilterLogger);
 
         urlEditText = findViewById(R.id.advanced_browser_url);
         webView = findViewById(R.id.advanced_browser_webview);
@@ -176,9 +180,28 @@ public class AdvancedBrowserActivity extends AppCompatActivity {
         @Override
         public void onPageFinished(WebView view, String url) {
             urlEditText.setText(url);
-            view.evaluateJavascript(staticCosmeticScriptBuilder.build(ruleSet.getCosmeticRules(), url), null);
-            view.evaluateJavascript(scriptletScriptBuilder.build(ruleSet.getScriptletRules(), url), null);
-            view.evaluateJavascript(proceduralCosmeticScriptBuilder.build(ruleSet.getProceduralCosmeticRules(), url), null);
+            String staticCosmeticScript = staticCosmeticScriptBuilder.build(ruleSet.getCosmeticRules(), url);
+            String scriptletScript = scriptletScriptBuilder.build(ruleSet.getScriptletRules(), url);
+            String proceduralCosmeticScript = proceduralCosmeticScriptBuilder.build(ruleSet.getProceduralCosmeticRules(), url);
+            if (!ruleSet.getCosmeticRules().isEmpty()) {
+                recordInjection(url, AdvancedFilterEvent.Type.COSMETIC, "static");
+            }
+            if (!ruleSet.getScriptletRules().isEmpty()) {
+                recordInjection(url, AdvancedFilterEvent.Type.SCRIPTLET, "scriptlet");
+            }
+            if (!ruleSet.getProceduralCosmeticRules().isEmpty()) {
+                recordInjection(url, AdvancedFilterEvent.Type.COSMETIC, "procedural");
+            }
+            view.evaluateJavascript(staticCosmeticScript, null);
+            view.evaluateJavascript(scriptletScript, null);
+            view.evaluateJavascript(proceduralCosmeticScript, null);
+        }
+
+        private void recordInjection(String url, AdvancedFilterEvent.Type type, String detail) {
+            if (advancedFilterLogger == null) {
+                return;
+            }
+            advancedFilterLogger.record(new AdvancedFilterEvent(type, url, url, "", detail));
         }
 
         private String acceptHeader(WebResourceRequest request) {
