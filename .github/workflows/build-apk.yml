@@ -65,9 +65,12 @@ jobs:
       - name: Build release APK
         run: ./gradlew :adguard_cb:assembleProdProdBackendRelease --stacktrace -Dorg.gradle.jvmargs="-Xmx2048m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8"
 
+      - name: List APK outputs
+        run: find adguard_cb/build/outputs/apk -type f -name "*.apk" -print
+
       - name: Upload APK
         uses: actions/upload-artifact@v7
         with:
           name: content-blocker-android
-          path: content-blocker-android.apk
+          path: adguard_cb/build/outputs/apk/**/*.apk
           if-no-files-found: error
