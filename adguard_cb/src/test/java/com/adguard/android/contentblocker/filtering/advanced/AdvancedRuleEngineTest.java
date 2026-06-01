@@ -362,6 +362,60 @@ public class AdvancedRuleEngineTest {
         assertEquals(FilterDecision.Action.ALLOW, partnerDecision.getAction());
     }
 
+    @Test
+    public void respectsFromAndToOptions() {
+        AdvancedRuleSet rules = new AdvancedRuleCompiler().compile(Arrays.asList(
+                "*$script,from=example.com|sub.example.org,to=ads.example|tracker.example"));
+        AdvancedRuleEngine engine = new AdvancedRuleEngine(rules);
+
+        FilterDecision matchingDecision = engine.evaluate(new RequestContext(
+                "https://cdn.ads.example/ad.js",
+                "https://www.example.com/page",
+                RequestContext.TYPE_SCRIPT,
+                false));
+        FilterDecision wrongSourceDecision = engine.evaluate(new RequestContext(
+                "https://cdn.ads.example/ad.js",
+                "https://other.example/page",
+                RequestContext.TYPE_SCRIPT,
+                false));
+        FilterDecision wrongDestinationDecision = engine.evaluate(new RequestContext(
+                "https://cdn.safe.example/app.js",
+                "https://www.example.com/page",
+                RequestContext.TYPE_SCRIPT,
+                false));
+
+        assertEquals(FilterDecision.Action.BLOCK, matchingDecision.getAction());
+        assertEquals(FilterDecision.Action.ALLOW, wrongSourceDecision.getAction());
+        assertEquals(FilterDecision.Action.ALLOW, wrongDestinationDecision.getAction());
+    }
+
+    @Test
+    public void respectsNegatedFromAndToOptions() {
+        AdvancedRuleSet rules = new AdvancedRuleCompiler().compile(Arrays.asList(
+                "*$script,from=~trusted.example,to=~safe.example"));
+        AdvancedRuleEngine engine = new AdvancedRuleEngine(rules);
+
+        FilterDecision blockedDecision = engine.evaluate(new RequestContext(
+                "https://ads.example/ad.js",
+                "https://example.com/page",
+                RequestContext.TYPE_SCRIPT,
+                false));
+        FilterDecision trustedSourceDecision = engine.evaluate(new RequestContext(
+                "https://ads.example/ad.js",
+                "https://trusted.example/page",
+                RequestContext.TYPE_SCRIPT,
+                false));
+        FilterDecision safeDestinationDecision = engine.evaluate(new RequestContext(
+                "https://cdn.safe.example/app.js",
+                "https://example.com/page",
+                RequestContext.TYPE_SCRIPT,
+                false));
+
+        assertEquals(FilterDecision.Action.BLOCK, blockedDecision.getAction());
+        assertEquals(FilterDecision.Action.ALLOW, trustedSourceDecision.getAction());
+        assertEquals(FilterDecision.Action.ALLOW, safeDestinationDecision.getAction());
+    }
+
     private static void assertRedirect(FilterDecision decision, String resourceName, String mimeType, int bodySize) {
         assertEquals(FilterDecision.Action.REDIRECT, decision.getAction());
         assertNotNull(decision.getRedirectResource());

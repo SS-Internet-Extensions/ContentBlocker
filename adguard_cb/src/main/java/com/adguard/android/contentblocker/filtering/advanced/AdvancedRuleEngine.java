@@ -162,14 +162,23 @@ public final class AdvancedRuleEngine {
         if (!denyallowMatches(rule, context)) {
             return false;
         }
+        if (!domainListMatches(rule.getOptionValue("from"), context.getPageUrl())) {
+            return false;
+        }
+        if (!domainListMatches(rule.getOptionValue("to"), context.getRequestUrl())) {
+            return false;
+        }
 
-        String domainOption = rule.getOptionValue("domain");
+        return domainListMatches(rule.getOptionValue("domain"), context.getPageUrl());
+    }
+
+    private static boolean domainListMatches(String domainOption, String url) {
         if (domainOption.length() == 0) {
             return true;
         }
 
-        String pageHost = host(context.getPageUrl());
-        if (pageHost.length() == 0) {
+        String targetHost = host(url);
+        if (targetHost.length() == 0) {
             return false;
         }
 
@@ -182,12 +191,12 @@ public final class AdvancedRuleEngine {
                 continue;
             }
             if (normalizedDomain.startsWith("~")) {
-                if (domainMatches(pageHost, normalizedDomain.substring(1))) {
+                if (domainMatches(targetHost, normalizedDomain.substring(1))) {
                     return false;
                 }
             } else {
                 hasIncludedDomains = true;
-                includedDomainMatches = includedDomainMatches || domainMatches(pageHost, normalizedDomain);
+                includedDomainMatches = includedDomainMatches || domainMatches(targetHost, normalizedDomain);
             }
         }
 
