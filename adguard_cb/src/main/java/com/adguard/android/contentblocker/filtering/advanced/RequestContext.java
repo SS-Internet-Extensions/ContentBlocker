@@ -22,13 +22,19 @@ public final class RequestContext {
     private final String resourceType;
     private final boolean mainFrame;
     private final boolean thirdParty;
+    private final String requestMethod;
 
     public RequestContext(String requestUrl, String pageUrl, String resourceType, boolean mainFrame) {
+        this(requestUrl, pageUrl, resourceType, mainFrame, "GET");
+    }
+
+    public RequestContext(String requestUrl, String pageUrl, String resourceType, boolean mainFrame, String requestMethod) {
         this.requestUrl = requestUrl;
         this.pageUrl = pageUrl;
         this.resourceType = normalizeResourceType(resourceType);
         this.mainFrame = mainFrame;
         this.thirdParty = computeThirdParty(requestUrl, pageUrl);
+        this.requestMethod = normalizeMethod(requestMethod);
     }
 
     public static RequestContext infer(String requestUrl, String pageUrl) {
@@ -36,7 +42,11 @@ public final class RequestContext {
     }
 
     public static RequestContext infer(String requestUrl, String pageUrl, boolean mainFrame, String acceptHeader) {
-        return new RequestContext(requestUrl, pageUrl, inferResourceType(requestUrl, mainFrame, acceptHeader), mainFrame);
+        return infer(requestUrl, pageUrl, mainFrame, acceptHeader, "GET");
+    }
+
+    public static RequestContext infer(String requestUrl, String pageUrl, boolean mainFrame, String acceptHeader, String requestMethod) {
+        return new RequestContext(requestUrl, pageUrl, inferResourceType(requestUrl, mainFrame, acceptHeader), mainFrame, requestMethod);
     }
 
     public String getRequestUrl() {
@@ -57,6 +67,10 @@ public final class RequestContext {
 
     public boolean isThirdParty() {
         return thirdParty;
+    }
+
+    public String getRequestMethod() {
+        return requestMethod;
     }
 
     private static String inferResourceType(String requestUrl, boolean mainFrame, String acceptHeader) {
@@ -116,6 +130,11 @@ public final class RequestContext {
     private static String normalizeResourceType(String resourceType) {
         String value = resourceType == null ? "" : resourceType.trim().toLowerCase(Locale.US);
         return value.length() == 0 ? TYPE_OTHER : value;
+    }
+
+    private static String normalizeMethod(String requestMethod) {
+        String value = requestMethod == null ? "" : requestMethod.trim().toUpperCase(Locale.US);
+        return value.length() == 0 ? "GET" : value;
     }
 
     private static boolean computeThirdParty(String requestUrl, String pageUrl) {

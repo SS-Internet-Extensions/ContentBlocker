@@ -167,7 +167,8 @@ public class AdvancedBrowserActivity extends AppCompatActivity {
                     uri.toString(),
                     view.getUrl(),
                     request.isForMainFrame(),
-                    acceptHeader(request)));
+                    acceptHeader(request),
+                    request.getMethod()));
             if (decision.getAction() == FilterDecision.Action.REDIRECT) {
                 return redirectResponse(decision.getRedirectResource());
             }

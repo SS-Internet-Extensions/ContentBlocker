@@ -297,6 +297,44 @@ public class AdvancedRuleEngineTest {
         assertEquals(FilterDecision.Action.ALLOW, wrongContextDecision.getAction());
     }
 
+    @Test
+    public void respectsMethodOption() {
+        AdvancedRuleSet rules = new AdvancedRuleCompiler().compile(Arrays.asList(
+                "||api.example/collect$method=POST",
+                "||api.example/ping$method=~POST"));
+        AdvancedRuleEngine engine = new AdvancedRuleEngine(rules);
+
+        FilterDecision getCollectDecision = engine.evaluate(new RequestContext(
+                "https://api.example/collect",
+                "https://example.com",
+                RequestContext.TYPE_XMLHTTPREQUEST,
+                false,
+                "GET"));
+        FilterDecision postCollectDecision = engine.evaluate(new RequestContext(
+                "https://api.example/collect",
+                "https://example.com",
+                RequestContext.TYPE_XMLHTTPREQUEST,
+                false,
+                "POST"));
+        FilterDecision postPingDecision = engine.evaluate(new RequestContext(
+                "https://api.example/ping",
+                "https://example.com",
+                RequestContext.TYPE_XMLHTTPREQUEST,
+                false,
+                "POST"));
+        FilterDecision getPingDecision = engine.evaluate(new RequestContext(
+                "https://api.example/ping",
+                "https://example.com",
+                RequestContext.TYPE_XMLHTTPREQUEST,
+                false,
+                "GET"));
+
+        assertEquals(FilterDecision.Action.ALLOW, getCollectDecision.getAction());
+        assertEquals(FilterDecision.Action.BLOCK, postCollectDecision.getAction());
+        assertEquals(FilterDecision.Action.ALLOW, postPingDecision.getAction());
+        assertEquals(FilterDecision.Action.BLOCK, getPingDecision.getAction());
+    }
+
     private static void assertRedirect(FilterDecision decision, String resourceName, String mimeType, int bodySize) {
         assertEquals(FilterDecision.Action.REDIRECT, decision.getAction());
         assertNotNull(decision.getRedirectResource());

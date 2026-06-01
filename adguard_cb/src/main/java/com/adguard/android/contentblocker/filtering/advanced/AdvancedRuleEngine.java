@@ -156,6 +156,9 @@ public final class AdvancedRuleEngine {
         if (!thirdPartyMatches(rule, context)) {
             return false;
         }
+        if (!methodMatches(rule, context)) {
+            return false;
+        }
 
         String domainOption = rule.getOptionValue("domain");
         if (domainOption.length() == 0) {
@@ -220,6 +223,32 @@ public final class AdvancedRuleEngine {
             return false;
         }
         return !rule.hasOption("~1p") || context.isThirdParty();
+    }
+
+    private static boolean methodMatches(AdvancedRule rule, RequestContext context) {
+        String methodOption = rule.getOptionValue("method");
+        if (methodOption.length() == 0) {
+            return true;
+        }
+
+        boolean hasIncludedMethods = false;
+        boolean includedMethodMatches = false;
+        String[] methods = methodOption.split("\\|");
+        for (String method : methods) {
+            String normalizedMethod = method.trim().toUpperCase(Locale.US);
+            if (normalizedMethod.length() == 0) {
+                continue;
+            }
+            if (normalizedMethod.startsWith("~")) {
+                if (context.getRequestMethod().equals(normalizedMethod.substring(1))) {
+                    return false;
+                }
+            } else {
+                hasIncludedMethods = true;
+                includedMethodMatches = includedMethodMatches || context.getRequestMethod().equals(normalizedMethod);
+            }
+        }
+        return !hasIncludedMethods || includedMethodMatches;
     }
 
     private static boolean patternMatches(AdvancedRule rule, String requestUrl) {
