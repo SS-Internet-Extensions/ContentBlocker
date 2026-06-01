@@ -159,6 +159,9 @@ public final class AdvancedRuleEngine {
         if (!methodMatches(rule, context)) {
             return false;
         }
+        if (!denyallowMatches(rule, context)) {
+            return false;
+        }
 
         String domainOption = rule.getOptionValue("domain");
         if (domainOption.length() == 0) {
@@ -249,6 +252,27 @@ public final class AdvancedRuleEngine {
             }
         }
         return !hasIncludedMethods || includedMethodMatches;
+    }
+
+    private static boolean denyallowMatches(AdvancedRule rule, RequestContext context) {
+        String denyallowOption = rule.getOptionValue("denyallow");
+        if (denyallowOption.length() == 0) {
+            return true;
+        }
+
+        String requestHost = host(context.getRequestUrl());
+        if (requestHost.length() == 0) {
+            return true;
+        }
+
+        String[] domains = denyallowOption.split("\\|");
+        for (String domain : domains) {
+            String normalizedDomain = domain.trim().toLowerCase(Locale.US);
+            if (normalizedDomain.length() > 0 && domainMatches(requestHost, normalizedDomain)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static boolean patternMatches(AdvancedRule rule, String requestUrl) {

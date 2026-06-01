@@ -33,13 +33,13 @@ This app accepts common uBlock Origin-style static filter syntax in user rules a
 Supported compatibility categories in the export path:
 
 - Network URL patterns: plain patterns, wildcard patterns, hostname anchors such as `||example.com^`, and regex-delimited rules such as `/adserver\d+\.js/`.
-- Context options: common request type and context options such as `$script`, `$image`, `$stylesheet`, `$css`, `$subdocument`, `$frame`, `$xmlhttprequest`, `$xhr`, `$third-party`, `$3p`, `$1p`, `$domain=...`, `$method=...`, `$match-case`, `$popup`, `$redirect=...`, and `$removeparam=...`. Custom and engine-specific network options are preserved so custom filters are not disabled by the compatibility layer.
+- Context options: common request type and context options such as `$script`, `$image`, `$stylesheet`, `$css`, `$subdocument`, `$frame`, `$xmlhttprequest`, `$xhr`, `$third-party`, `$3p`, `$1p`, `$domain=...`, `$denyallow=...`, `$method=...`, `$match-case`, `$popup`, `$redirect=...`, and `$removeparam=...`. Custom and engine-specific network options are preserved so custom filters are not disabled by the compatibility layer.
 - Cosmetic filters: standard CSS selector hiding and exceptions such as `example.com##.ad` and `example.com#@#.ad`.
 - Scriptlet aliases: common uBO `##+js(...)` aliases are converted to AdGuard scriptlet syntax for `set`, `set-constant`, `aopr`, `abort-on-property-read`, `aopw`, `abort-on-property-write`, `acis`, `abort-current-inline-script`, `ra`, `remove-attr`, `rc`, `remove-class`, `noeval`, `aeld`, `nostif`, and `nosiif`.
 
 Advanced Browser adds best-effort runtime support for:
 
-- `$important`, `$badfilter`, exception rules, request type matching, `$method=...`, case-insensitive URL matching by default, `$match-case`, `$third-party`, `$3p`, `$1p`, `$~third-party`, `$~3p`, `$~1p`, and `$domain=...` context.
+- `$important`, `$badfilter`, exception rules, request type matching, `$method=...`, `$denyallow=...`, case-insensitive URL matching by default, `$match-case`, `$third-party`, `$3p`, `$1p`, `$~third-party`, `$~3p`, `$~1p`, and `$domain=...` context.
 - `$redirect=` and `$redirect-rule=` resources such as `noopjs`, `noopcss`, `nooptext`, `noopjson`, `noophtml`, `noopframe`, `noopvast-*`, `noopvmap-1.0`, `empty`, transparent `1x1.gif`, and common neutered analytics/ad-tech scripts.
 - `$popup` navigation blocking inside the WebView.
 - `$removeparam=` with request-pattern and page-domain context, exception rules, exact parameter names, wildcard names, and regex names.

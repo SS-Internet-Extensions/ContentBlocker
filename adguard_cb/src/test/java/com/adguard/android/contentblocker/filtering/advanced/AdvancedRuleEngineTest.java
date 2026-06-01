@@ -335,6 +335,33 @@ public class AdvancedRuleEngineTest {
         assertEquals(FilterDecision.Action.BLOCK, getPingDecision.getAction());
     }
 
+    @Test
+    public void respectsDenyallowOption() {
+        AdvancedRuleSet rules = new AdvancedRuleCompiler().compile(Arrays.asList(
+                "*$third-party,script,domain=example.com,denyallow=allowed.cdn.example|static.partner.example"));
+        AdvancedRuleEngine engine = new AdvancedRuleEngine(rules);
+
+        FilterDecision blockedDecision = engine.evaluate(new RequestContext(
+                "https://ads.example/ad.js",
+                "https://example.com",
+                RequestContext.TYPE_SCRIPT,
+                false));
+        FilterDecision allowedDecision = engine.evaluate(new RequestContext(
+                "https://sub.allowed.cdn.example/app.js",
+                "https://example.com",
+                RequestContext.TYPE_SCRIPT,
+                false));
+        FilterDecision partnerDecision = engine.evaluate(new RequestContext(
+                "https://static.partner.example/app.js",
+                "https://example.com",
+                RequestContext.TYPE_SCRIPT,
+                false));
+
+        assertEquals(FilterDecision.Action.BLOCK, blockedDecision.getAction());
+        assertEquals(FilterDecision.Action.ALLOW, allowedDecision.getAction());
+        assertEquals(FilterDecision.Action.ALLOW, partnerDecision.getAction());
+    }
+
     private static void assertRedirect(FilterDecision decision, String resourceName, String mimeType, int bodySize) {
         assertEquals(FilterDecision.Action.REDIRECT, decision.getAction());
         assertNotNull(decision.getRedirectResource());
