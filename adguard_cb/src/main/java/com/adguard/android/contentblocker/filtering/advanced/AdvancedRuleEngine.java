@@ -256,10 +256,37 @@ public final class AdvancedRuleEngine {
         if ((rule.hasOption("~third-party") || rule.hasOption("~3p")) && context.isThirdParty()) {
             return false;
         }
-        if (rule.hasOption("1p") && context.isThirdParty()) {
+        if ((rule.hasOption("first-party") || rule.hasOption("1p")) && context.isThirdParty()) {
             return false;
         }
-        return !rule.hasOption("~1p") || context.isThirdParty();
+        if ((rule.hasOption("~first-party") || rule.hasOption("~1p")) && !context.isThirdParty()) {
+            return false;
+        }
+
+        boolean strictFirstParty = strictFirstParty(context);
+        boolean strictThirdParty = strictThirdParty(context);
+        if (rule.hasOption("strict1p") && !strictFirstParty) {
+            return false;
+        }
+        if (rule.hasOption("~strict1p") && strictFirstParty) {
+            return false;
+        }
+        if (rule.hasOption("strict3p") && !strictThirdParty) {
+            return false;
+        }
+        return !rule.hasOption("~strict3p") || !strictThirdParty;
+    }
+
+    private static boolean strictFirstParty(RequestContext context) {
+        String requestHost = host(context.getRequestUrl());
+        String pageHost = host(context.getPageUrl());
+        return requestHost.length() > 0 && requestHost.equals(pageHost);
+    }
+
+    private static boolean strictThirdParty(RequestContext context) {
+        String requestHost = host(context.getRequestUrl());
+        String pageHost = host(context.getPageUrl());
+        return requestHost.length() > 0 && pageHost.length() > 0 && !requestHost.equals(pageHost);
     }
 
     private static boolean methodMatches(AdvancedRule rule, RequestContext context) {

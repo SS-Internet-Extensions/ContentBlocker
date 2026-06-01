@@ -343,6 +343,62 @@ public class AdvancedRuleEngineTest {
     }
 
     @Test
+    public void supportsFirstPartyAlias() {
+        AdvancedRuleSet rules = new AdvancedRuleCompiler().compile(Arrays.asList(
+                "||tracker.example/account$first-party"));
+        AdvancedRuleEngine engine = new AdvancedRuleEngine(rules);
+
+        FilterDecision firstPartyDecision = engine.evaluate(new RequestContext(
+                "https://static.tracker.example/account",
+                "https://www.tracker.example/profile",
+                RequestContext.TYPE_IMAGE,
+                false));
+        FilterDecision thirdPartyDecision = engine.evaluate(new RequestContext(
+                "https://tracker.example/account",
+                "https://example.com/profile",
+                RequestContext.TYPE_IMAGE,
+                false));
+
+        assertEquals(FilterDecision.Action.BLOCK, firstPartyDecision.getAction());
+        assertEquals(FilterDecision.Action.ALLOW, thirdPartyDecision.getAction());
+    }
+
+    @Test
+    public void supportsStrictPartyOptions() {
+        AdvancedRuleSet rules = new AdvancedRuleCompiler().compile(Arrays.asList(
+                "||tracker.example/exact$strict1p",
+                "||tracker.example/subdomain$strict3p",
+                "||tracker.example/negated$~strict3p"));
+        AdvancedRuleEngine engine = new AdvancedRuleEngine(rules);
+
+        FilterDecision exactFirstPartyDecision = engine.evaluate(new RequestContext(
+                "https://tracker.example/exact",
+                "https://tracker.example/page",
+                RequestContext.TYPE_IMAGE,
+                false));
+        FilterDecision subdomainFirstPartyDecision = engine.evaluate(new RequestContext(
+                "https://static.tracker.example/exact",
+                "https://www.tracker.example/page",
+                RequestContext.TYPE_IMAGE,
+                false));
+        FilterDecision strictThirdPartyDecision = engine.evaluate(new RequestContext(
+                "https://static.tracker.example/subdomain",
+                "https://www.tracker.example/page",
+                RequestContext.TYPE_IMAGE,
+                false));
+        FilterDecision negatedStrictThirdPartyDecision = engine.evaluate(new RequestContext(
+                "https://tracker.example/negated",
+                "https://tracker.example/page",
+                RequestContext.TYPE_IMAGE,
+                false));
+
+        assertEquals(FilterDecision.Action.BLOCK, exactFirstPartyDecision.getAction());
+        assertEquals(FilterDecision.Action.ALLOW, subdomainFirstPartyDecision.getAction());
+        assertEquals(FilterDecision.Action.BLOCK, strictThirdPartyDecision.getAction());
+        assertEquals(FilterDecision.Action.BLOCK, negatedStrictThirdPartyDecision.getAction());
+    }
+
+    @Test
     public void respectsMethodOption() {
         AdvancedRuleSet rules = new AdvancedRuleCompiler().compile(Arrays.asList(
                 "||api.example/collect$method=POST",

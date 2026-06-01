@@ -98,6 +98,20 @@ public class ScriptBuilderTest {
     }
 
     @Test
+    public void elemhideAliasDisablesStaticCosmeticsForPage() {
+        AdvancedRuleSet rules = compiler.compile(Arrays.asList(
+                "##.generic-ad",
+                "@@||example.com^$ehide"));
+
+        String script = new StaticCosmeticScriptBuilder().build(
+                rules.getCosmeticRules(),
+                "https://example.com/article",
+                rules.getNetworkRules());
+
+        assertTrue(!script.contains(".generic-ad{display:none!important;}"));
+    }
+
+    @Test
     public void generichideExceptionKeepsDomainSpecificStaticCosmetics() {
         AdvancedRuleSet rules = compiler.compile(Arrays.asList(
                 "##.generic-ad",
@@ -114,11 +128,43 @@ public class ScriptBuilderTest {
     }
 
     @Test
+    public void generichideAliasKeepsDomainSpecificStaticCosmetics() {
+        AdvancedRuleSet rules = compiler.compile(Arrays.asList(
+                "##.generic-ad",
+                "example.com##.specific-ad",
+                "@@||example.com^$ghide"));
+
+        String script = new StaticCosmeticScriptBuilder().build(
+                rules.getCosmeticRules(),
+                "https://example.com/article",
+                rules.getNetworkRules());
+
+        assertTrue(!script.contains(".generic-ad{display:none!important;}"));
+        assertTrue(script.contains(".specific-ad{display:none!important;}"));
+    }
+
+    @Test
     public void specifichideExceptionKeepsGenericStaticCosmetics() {
         AdvancedRuleSet rules = compiler.compile(Arrays.asList(
                 "##.generic-ad",
                 "example.com##.specific-ad",
                 "@@||example.com^$specifichide"));
+
+        String script = new StaticCosmeticScriptBuilder().build(
+                rules.getCosmeticRules(),
+                "https://example.com/article",
+                rules.getNetworkRules());
+
+        assertTrue(script.contains(".generic-ad{display:none!important;}"));
+        assertTrue(!script.contains(".specific-ad{display:none!important;}"));
+    }
+
+    @Test
+    public void specifichideAliasKeepsGenericStaticCosmetics() {
+        AdvancedRuleSet rules = compiler.compile(Arrays.asList(
+                "##.generic-ad",
+                "example.com##.specific-ad",
+                "@@||example.com^$shide"));
 
         String script = new StaticCosmeticScriptBuilder().build(
                 rules.getCosmeticRules(),
