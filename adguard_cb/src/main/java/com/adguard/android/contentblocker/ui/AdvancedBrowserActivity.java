@@ -180,9 +180,12 @@ public class AdvancedBrowserActivity extends AppCompatActivity {
         @Override
         public void onPageFinished(WebView view, String url) {
             urlEditText.setText(url);
-            String staticCosmeticScript = staticCosmeticScriptBuilder.build(ruleSet.getCosmeticRules(), url);
+            String staticCosmeticScript = staticCosmeticScriptBuilder.build(ruleSet.getCosmeticRules(), url, ruleSet.getNetworkRules());
             String scriptletScript = scriptletScriptBuilder.build(ruleSet.getScriptletRules(), url);
-            String proceduralCosmeticScript = proceduralCosmeticScriptBuilder.build(ruleSet.getProceduralCosmeticRules(), url);
+            String proceduralCosmeticScript = proceduralCosmeticScriptBuilder.build(
+                    ruleSet.getProceduralCosmeticRules(),
+                    url,
+                    ruleSet.getNetworkRules());
             if (!ruleSet.getCosmeticRules().isEmpty()) {
                 recordInjection(url, AdvancedFilterEvent.Type.COSMETIC, "static");
             }

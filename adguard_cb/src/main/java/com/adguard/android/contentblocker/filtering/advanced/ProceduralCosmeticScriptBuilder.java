@@ -16,6 +16,10 @@ public final class ProceduralCosmeticScriptBuilder {
     }
 
     public String build(List<AdvancedRule> rules, String pageUrl) {
+        return build(rules, pageUrl, null);
+    }
+
+    public String build(List<AdvancedRule> rules, String pageUrl, List<AdvancedRule> networkRules) {
         StringBuilder script = new StringBuilder();
         script.append("(function(){\n");
         script.append("function hideHasText(selector,text){var nodes;try{nodes=document.querySelectorAll(selector||'*');}");
@@ -41,8 +45,14 @@ public final class ProceduralCosmeticScriptBuilder {
         script.append("if(node&&node.style){node.style.setProperty('display','none','important');}}}catch(e){}}\n");
         script.append("function applyProceduralCosmetics(){\n");
 
-        if (rules != null) {
+        boolean elemhideDisabled = CosmeticRuleControl.elemhideDisabled(networkRules, pageUrl);
+        boolean generichideDisabled = CosmeticRuleControl.generichideDisabled(networkRules, pageUrl);
+
+        if (rules != null && !elemhideDisabled) {
             for (AdvancedRule rule : rules) {
+                if (generichideDisabled && isGenericRule(rule)) {
+                    continue;
+                }
                 if (domainPrefixMatches(rule, pageUrl)) {
                     appendRule(script, rule);
                 }
@@ -56,6 +66,10 @@ public final class ProceduralCosmeticScriptBuilder {
         script.append(".observe(document.documentElement||document,{childList:true,subtree:true,characterData:true});}\n");
         script.append("})();");
         return script.toString();
+    }
+
+    private static boolean isGenericRule(AdvancedRule rule) {
+        return trimToEmpty(rule.getDomainPrefix()).length() == 0;
     }
 
     private static void appendRule(StringBuilder script, AdvancedRule rule) {

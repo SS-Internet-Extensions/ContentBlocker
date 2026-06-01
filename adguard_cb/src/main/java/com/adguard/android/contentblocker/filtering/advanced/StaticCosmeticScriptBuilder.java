@@ -13,12 +13,21 @@ public final class StaticCosmeticScriptBuilder {
     }
 
     public String build(List<AdvancedRule> rules, String pageUrl) {
+        return build(rules, pageUrl, null);
+    }
+
+    public String build(List<AdvancedRule> rules, String pageUrl, List<AdvancedRule> networkRules) {
         StringBuilder css = new StringBuilder();
         Set<String> exceptions = exceptionSelectors(rules, pageUrl);
+        boolean elemhideDisabled = CosmeticRuleControl.elemhideDisabled(networkRules, pageUrl);
+        boolean generichideDisabled = CosmeticRuleControl.generichideDisabled(networkRules, pageUrl);
 
-        if (rules != null) {
+        if (rules != null && !elemhideDisabled) {
             for (AdvancedRule rule : rules) {
                 if (rule == null || rule.getType() != AdvancedRuleType.COSMETIC || rule.isException()) {
+                    continue;
+                }
+                if (generichideDisabled && isGenericRule(rule)) {
                     continue;
                 }
                 if (!domainPrefixMatches(rule, pageUrl)) {
@@ -64,6 +73,10 @@ public final class StaticCosmeticScriptBuilder {
             return trimToEmpty(selector.substring("##".length()));
         }
         return "";
+    }
+
+    private static boolean isGenericRule(AdvancedRule rule) {
+        return trimToEmpty(rule.getDomainPrefix()).length() == 0;
     }
 
     private static boolean domainPrefixMatches(AdvancedRule rule, String pageUrl) {

@@ -82,6 +82,38 @@ public class ScriptBuilderTest {
     }
 
     @Test
+    public void elemhideExceptionDisablesStaticCosmeticsForPage() {
+        AdvancedRuleSet rules = compiler.compile(Arrays.asList(
+                "##.generic-ad",
+                "example.com##.specific-ad",
+                "@@||example.com^$elemhide"));
+
+        String script = new StaticCosmeticScriptBuilder().build(
+                rules.getCosmeticRules(),
+                "https://example.com/article",
+                rules.getNetworkRules());
+
+        assertTrue(!script.contains(".generic-ad{display:none!important;}"));
+        assertTrue(!script.contains(".specific-ad{display:none!important;}"));
+    }
+
+    @Test
+    public void generichideExceptionKeepsDomainSpecificStaticCosmetics() {
+        AdvancedRuleSet rules = compiler.compile(Arrays.asList(
+                "##.generic-ad",
+                "example.com##.specific-ad",
+                "@@||example.com^$generichide"));
+
+        String script = new StaticCosmeticScriptBuilder().build(
+                rules.getCosmeticRules(),
+                "https://example.com/article",
+                rules.getNetworkRules());
+
+        assertTrue(!script.contains(".generic-ad{display:none!important;}"));
+        assertTrue(script.contains(".specific-ad{display:none!important;}"));
+    }
+
+    @Test
     public void buildsMatchesAttrProceduralCosmetic() {
         AdvancedRuleSet rules = compiler.compile(Arrays.asList(
                 "example.com##div:matches-attr(data-ad=sponsored)"));
@@ -114,5 +146,37 @@ public class ScriptBuilderTest {
 
         assertTrue(script.contains("document.evaluate"));
         assertTrue(script.contains("Sponsored"));
+    }
+
+    @Test
+    public void elemhideExceptionDisablesProceduralCosmeticsForPage() {
+        AdvancedRuleSet rules = compiler.compile(Arrays.asList(
+                "##div:has-text(Generic)",
+                "example.com##div:has-text(Specific)",
+                "@@||example.com^$elemhide"));
+
+        String script = new ProceduralCosmeticScriptBuilder().build(
+                rules.getProceduralCosmeticRules(),
+                "https://example.com/article",
+                rules.getNetworkRules());
+
+        assertTrue(!script.contains("Generic"));
+        assertTrue(!script.contains("Specific"));
+    }
+
+    @Test
+    public void generichideExceptionKeepsDomainSpecificProceduralCosmetics() {
+        AdvancedRuleSet rules = compiler.compile(Arrays.asList(
+                "##div:has-text(Generic)",
+                "example.com##div:has-text(Specific)",
+                "@@||example.com^$generichide"));
+
+        String script = new ProceduralCosmeticScriptBuilder().build(
+                rules.getProceduralCosmeticRules(),
+                "https://example.com/article",
+                rules.getNetworkRules());
+
+        assertTrue(!script.contains("Generic"));
+        assertTrue(script.contains("Specific"));
     }
 }

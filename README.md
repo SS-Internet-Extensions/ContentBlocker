@@ -43,7 +43,7 @@ Advanced Browser adds best-effort runtime support for:
 - `$redirect=` and `$redirect-rule=` resources such as `noopjs`, `noopcss`, `nooptext`, `noophtml`, `empty`, and transparent `1x1.gif`.
 - `$popup` navigation blocking inside the WebView.
 - `$removeparam=` with request-pattern and page-domain context, exception rules, exact parameter names, wildcard names, and regex names.
-- Static cosmetic filtering, procedural cosmetic filters for `:has-text`, `:matches-attr`, `:matches-css`, and `:xpath`, and common safe scriptlets including remove-attr/remove-class and abort-on-property-read/write/current-inline-script.
+- Static cosmetic filtering, `$elemhide`/`$generichide` cosmetic exceptions, procedural cosmetic filters for `:has-text`, `:matches-attr`, `:matches-css`, and `:xpath`, and common safe scriptlets including remove-attr/remove-class and abort-on-property-read/write/current-inline-script.
 
 Runtime limitations:
 
