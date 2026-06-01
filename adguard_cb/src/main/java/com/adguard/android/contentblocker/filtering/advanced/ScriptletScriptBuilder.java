@@ -41,6 +41,21 @@ public final class ScriptletScriptBuilder {
         script.append("Object.defineProperty(target.owner,target.prop,{configurable:true,get:function(){");
         script.append("var script=document.currentScript;if(script&&token&&(script.textContent||'').indexOf(token)!==-1){");
         script.append("throw new ReferenceError('Blocked inline script');}return value;},set:function(next){value=next;}});}\n");
+        script.append("function scriptletNeedleMatches(value,needle){value=String(value||'');needle=String(needle||'');");
+        script.append("if(!needle){return true;}if(needle.charAt(0)==='/'&&needle.lastIndexOf('/')>0){");
+        script.append("try{var end=needle.lastIndexOf('/');var rx=needle.slice(1,end);var flags=needle.slice(end+1);");
+        script.append("return new RegExp(rx,flags).test(value);}catch(e){return false;}}return value.indexOf(needle)!==-1;}\n");
+        script.append("function preventEval(needle){var original=window.eval;");
+        script.append("window.eval=function(source){if(scriptletNeedleMatches(source,needle)){return undefined;}");
+        script.append("return original.apply(this,arguments);};}\n");
+        script.append("function preventAddEventListener(typeNeedle,listenerNeedle){var original=EventTarget.prototype.addEventListener;");
+        script.append("EventTarget.prototype.addEventListener=function(type,listener,options){");
+        script.append("if(scriptletNeedleMatches(type,typeNeedle)&&scriptletNeedleMatches(listener,listenerNeedle)){return undefined;}");
+        script.append("return original.apply(this,arguments);};}\n");
+        script.append("function preventTimer(name,needle,delay){var original=window[name];");
+        script.append("window[name]=function(handler,timeout){var delayMatches=!delay||String(timeout)===String(delay);");
+        script.append("if(delayMatches&&scriptletNeedleMatches(handler,needle)){return 0;}");
+        script.append("return original.apply(this,arguments);};}\n");
 
         if (rules != null) {
             for (AdvancedRule rule : rules) {
@@ -73,6 +88,14 @@ public final class ScriptletScriptBuilder {
             appendRemoveClass(script, args);
         } else if ("abort-current-inline-script".equals(scriptletName)) {
             appendAbortCurrentInlineScript(script, args);
+        } else if ("noeval".equals(scriptletName)) {
+            appendPreventEval(script, args);
+        } else if ("prevent-addEventListener".equals(scriptletName)) {
+            appendPreventAddEventListener(script, args);
+        } else if ("prevent-setTimeout".equals(scriptletName)) {
+            appendPreventTimer(script, args, "setTimeout");
+        } else if ("prevent-setInterval".equals(scriptletName)) {
+            appendPreventTimer(script, args, "setInterval");
         }
     }
 
@@ -134,6 +157,38 @@ public final class ScriptletScriptBuilder {
         script.append("');}catch(e){}\n");
     }
 
+    private static void appendPreventEval(StringBuilder script, List<String> args) {
+        script.append("try{preventEval('");
+        script.append(escapeJsString(args.isEmpty() ? "" : args.get(0)));
+        script.append("');}catch(e){}\n");
+    }
+
+    private static void appendPreventAddEventListener(StringBuilder script, List<String> args) {
+        if (args.isEmpty()) {
+            return;
+        }
+
+        script.append("try{preventAddEventListener('");
+        script.append(escapeJsString(args.get(0)));
+        script.append("','");
+        script.append(escapeJsString(args.size() > 1 ? args.get(1) : ""));
+        script.append("');}catch(e){}\n");
+    }
+
+    private static void appendPreventTimer(StringBuilder script, List<String> args, String timerName) {
+        if (args.isEmpty()) {
+            return;
+        }
+
+        script.append("try{preventTimer('");
+        script.append(timerName);
+        script.append("','");
+        script.append(escapeJsString(args.get(0)));
+        script.append("','");
+        script.append(escapeJsString(args.size() > 1 ? args.get(1) : ""));
+        script.append("');}catch(e){}\n");
+    }
+
     private static void appendAbortOnPropertyWrite(StringBuilder script, List<String> args) {
         if (args.isEmpty()) {
             return;
@@ -163,6 +218,21 @@ public final class ScriptletScriptBuilder {
         }
         if ("acis".equals(value)) {
             return "abort-current-inline-script";
+        }
+        if ("noeval".equals(value) || "no-eval-if".equals(value)) {
+            return "noeval";
+        }
+        if ("aeld".equals(value) || "addeventlistener-defuser".equals(value) ||
+                "prevent-addeventlistener".equals(value)) {
+            return "prevent-addEventListener";
+        }
+        if ("nostif".equals(value) || "no-settimeout-if".equals(value) ||
+                "settimeout-defuser".equals(value) || "prevent-settimeout".equals(value)) {
+            return "prevent-setTimeout";
+        }
+        if ("nosiif".equals(value) || "no-setinterval-if".equals(value) ||
+                "setinterval-defuser".equals(value) || "prevent-setinterval".equals(value)) {
+            return "prevent-setInterval";
         }
         return value;
     }

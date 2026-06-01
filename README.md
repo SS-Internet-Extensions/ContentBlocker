@@ -35,7 +35,7 @@ Supported compatibility categories in the export path:
 - Network URL patterns: plain patterns, wildcard patterns, hostname anchors such as `||example.com^`, and regex-delimited rules such as `/adserver\d+\.js/`.
 - Context options: common request type and context options such as `$script`, `$image`, `$stylesheet`, `$css`, `$subdocument`, `$frame`, `$xmlhttprequest`, `$xhr`, `$third-party`, `$3p`, `$1p`, `$domain=...`, `$match-case`, `$popup`, `$redirect=...`, and `$removeparam=...`. Custom and engine-specific network options are preserved so custom filters are not disabled by the compatibility layer.
 - Cosmetic filters: standard CSS selector hiding and exceptions such as `example.com##.ad` and `example.com#@#.ad`.
-- Scriptlet aliases: common uBO `##+js(...)` aliases are converted to AdGuard scriptlet syntax for `set`, `set-constant`, `aopr`, `abort-on-property-read`, `aopw`, `abort-on-property-write`, `acis`, `abort-current-inline-script`, `ra`, `remove-attr`, `rc`, and `remove-class`.
+- Scriptlet aliases: common uBO `##+js(...)` aliases are converted to AdGuard scriptlet syntax for `set`, `set-constant`, `aopr`, `abort-on-property-read`, `aopw`, `abort-on-property-write`, `acis`, `abort-current-inline-script`, `ra`, `remove-attr`, `rc`, `remove-class`, `noeval`, `aeld`, `nostif`, and `nosiif`.
 
 Advanced Browser adds best-effort runtime support for:
 
@@ -43,7 +43,7 @@ Advanced Browser adds best-effort runtime support for:
 - `$redirect=` and `$redirect-rule=` resources such as `noopjs`, `noopcss`, `nooptext`, `noophtml`, `empty`, and transparent `1x1.gif`.
 - `$popup` navigation blocking inside the WebView.
 - `$removeparam=` with request-pattern and page-domain context, exception rules, exact parameter names, wildcard names, and regex names.
-- Static cosmetic filtering, `$elemhide`/`$generichide` cosmetic exceptions, procedural cosmetic filters for `:has-text`, `:matches-attr`, `:matches-css`, and `:xpath`, and common safe scriptlets including remove-attr/remove-class and abort-on-property-read/write/current-inline-script.
+- Static cosmetic filtering, `$elemhide`/`$generichide` cosmetic exceptions, procedural cosmetic filters for `:has-text`, `:matches-attr`, `:matches-css`, and `:xpath`, and common safe scriptlets including remove-attr/remove-class, abort-on-property-read/write/current-inline-script, `noeval`, addEventListener defusing, and timer defusing.
 
 Runtime limitations:
 
