@@ -31,6 +31,26 @@ jobs:
       - name: Make Gradle wrapper executable
         run: chmod +x ./gradlew
 
+      - name: Prepare release keystore
+        env:
+          ADGUARD_KEYSTORE_BASE64: ${{ secrets.ADGUARD_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$ADGUARD_KEYSTORE_BASE64" ]; then
+            printf '%s' "$ADGUARD_KEYSTORE_BASE64" | base64 -d > adguard_cb/adguard.keystore
+          else
+            rm -f adguard_cb/adguard.keystore
+            keytool -genkeypair \
+              -keystore adguard_cb/adguard.keystore \
+              -storepass adguard \
+              -keypass adguard \
+              -alias adguard \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=ContentBlocker CI,O=ContentBlocker,C=US" \
+              -noprompt
+          fi
+
       - name: Run unit tests
         run: ./gradlew :adguard_cb:testProdProdBackendDebugUnitTest --stacktrace -Dorg.gradle.jvmargs="-Xmx2048m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8"
 
