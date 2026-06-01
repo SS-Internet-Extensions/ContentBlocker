@@ -94,8 +94,16 @@ public final class AdvancedRuleEngine {
                 return decision;
             }
         }
+        FilterDecision importantAllDecision = firstMatchingAllPopupDecision(context, true);
+        if (importantAllDecision.getAction() != FilterDecision.Action.ALLOW) {
+            recordDecision(importantAllDecision, context);
+            return importantAllDecision;
+        }
 
         AdvancedRule exception = firstMatchingException(context, rules.getPopupRules());
+        if (exception == null) {
+            exception = firstMatchingAllPopupException(context);
+        }
         if (exception != null) {
             recordException(exception, context);
             return FilterDecision.allow();
@@ -108,12 +116,38 @@ public final class AdvancedRuleEngine {
                 return decision;
             }
         }
+        FilterDecision allDecision = firstMatchingAllPopupDecision(context, false);
+        if (allDecision.getAction() != FilterDecision.Action.ALLOW) {
+            recordDecision(allDecision, context);
+            return allDecision;
+        }
         return FilterDecision.allow();
     }
 
     private static AdvancedRule firstMatchingException(RequestContext context, Iterable<AdvancedRule> rules) {
         for (AdvancedRule rule : rules) {
             if (rule.isException() && matches(rule, context)) {
+                return rule;
+            }
+        }
+        return null;
+    }
+
+    private FilterDecision firstMatchingAllPopupDecision(RequestContext context, boolean importantOnly) {
+        for (AdvancedRule rule : rules.getNetworkRules()) {
+            if (!rule.isException() &&
+                    rule.hasOption("all") &&
+                    (!importantOnly || rule.isImportant()) &&
+                    matches(rule, context)) {
+                return FilterDecision.of(FilterDecision.Action.BLOCK, rule);
+            }
+        }
+        return FilterDecision.allow();
+    }
+
+    private AdvancedRule firstMatchingAllPopupException(RequestContext context) {
+        for (AdvancedRule rule : rules.getNetworkRules()) {
+            if (rule.isException() && rule.hasOption("all") && matches(rule, context)) {
                 return rule;
             }
         }

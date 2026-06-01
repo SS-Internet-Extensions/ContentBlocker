@@ -113,6 +113,31 @@ public class AdvancedRuleEngineTest {
     }
 
     @Test
+    public void allOptionBlocksPopupNavigation() {
+        AdvancedRuleSet rules = new AdvancedRuleCompiler().compile(Arrays.asList(
+                "||popup.example^$all,domain=example.com"));
+        AdvancedRuleEngine engine = new AdvancedRuleEngine(rules);
+
+        FilterDecision decision = engine.evaluatePopup("https://popup.example/path", "https://example.com");
+
+        assertEquals(FilterDecision.Action.BLOCK, decision.getAction());
+    }
+
+    @Test
+    public void allOptionPopupExceptionAllowsNavigation() {
+        AdvancedRuleSet rules = new AdvancedRuleCompiler().compile(Arrays.asList(
+                "||popup.example^$all",
+                "@@||popup.example^$all,domain=example.com"));
+        AdvancedRuleEngine engine = new AdvancedRuleEngine(rules);
+
+        FilterDecision allowedDecision = engine.evaluatePopup("https://popup.example/path", "https://example.com");
+        FilterDecision blockedDecision = engine.evaluatePopup("https://popup.example/path", "https://other.example");
+
+        assertEquals(FilterDecision.Action.ALLOW, allowedDecision.getAction());
+        assertEquals(FilterDecision.Action.BLOCK, blockedDecision.getAction());
+    }
+
+    @Test
     public void blocksRegexPattern() {
         AdvancedRuleSet rules = new AdvancedRuleCompiler().compile(Arrays.asList(
                 "/adserver\\d+\\.js/$script"));
