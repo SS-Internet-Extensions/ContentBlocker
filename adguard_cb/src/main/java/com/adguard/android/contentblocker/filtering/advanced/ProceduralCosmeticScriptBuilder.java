@@ -47,10 +47,14 @@ public final class ProceduralCosmeticScriptBuilder {
 
         boolean elemhideDisabled = CosmeticRuleControl.elemhideDisabled(networkRules, pageUrl);
         boolean generichideDisabled = CosmeticRuleControl.generichideDisabled(networkRules, pageUrl);
+        boolean specifichideDisabled = CosmeticRuleControl.specifichideDisabled(networkRules, pageUrl);
 
         if (rules != null && !elemhideDisabled) {
             for (AdvancedRule rule : rules) {
                 if (generichideDisabled && isGenericRule(rule)) {
+                    continue;
+                }
+                if (specifichideDisabled && !isGenericRule(rule)) {
                     continue;
                 }
                 if (domainPrefixMatches(rule, pageUrl)) {

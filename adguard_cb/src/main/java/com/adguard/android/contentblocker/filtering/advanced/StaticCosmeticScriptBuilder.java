@@ -21,6 +21,7 @@ public final class StaticCosmeticScriptBuilder {
         Set<String> exceptions = exceptionSelectors(rules, pageUrl);
         boolean elemhideDisabled = CosmeticRuleControl.elemhideDisabled(networkRules, pageUrl);
         boolean generichideDisabled = CosmeticRuleControl.generichideDisabled(networkRules, pageUrl);
+        boolean specifichideDisabled = CosmeticRuleControl.specifichideDisabled(networkRules, pageUrl);
 
         if (rules != null && !elemhideDisabled) {
             for (AdvancedRule rule : rules) {
@@ -28,6 +29,9 @@ public final class StaticCosmeticScriptBuilder {
                     continue;
                 }
                 if (generichideDisabled && isGenericRule(rule)) {
+                    continue;
+                }
+                if (specifichideDisabled && !isGenericRule(rule)) {
                     continue;
                 }
                 if (!domainPrefixMatches(rule, pageUrl)) {

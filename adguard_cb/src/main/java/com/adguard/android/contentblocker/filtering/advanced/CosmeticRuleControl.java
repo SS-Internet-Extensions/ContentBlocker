@@ -15,6 +15,10 @@ final class CosmeticRuleControl {
         return hasMatchingException(networkRules, pageUrl, "generichide");
     }
 
+    static boolean specifichideDisabled(List<AdvancedRule> networkRules, String pageUrl) {
+        return hasMatchingException(networkRules, pageUrl, "specifichide");
+    }
+
     private static boolean hasMatchingException(List<AdvancedRule> networkRules, String pageUrl, String option) {
         if (networkRules == null || pageUrl == null || pageUrl.length() == 0) {
             return false;
