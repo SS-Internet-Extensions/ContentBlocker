@@ -5,12 +5,18 @@ android {
         abortOnError false
     }
 
+    def signingValue = { name, fallback ->
+        def value = System.getenv(name)
+        return value == null || value.trim().isEmpty() ? fallback : value
+    }
+    def storePasswordValue = signingValue('KEYSTORE_PASSWORD', 'adguard')
+
     signingConfigs {
         config {
-            keyAlias 'adguard'
-            keyPassword 'adguard'
+            keyAlias signingValue('KEY_ALIAS', 'adguard')
+            keyPassword signingValue('KEY_PASSWORD', storePasswordValue)
             storeFile file('./adguard.keystore')
-            storePassword 'adguard'
+            storePassword storePasswordValue
         }
     }
     compileSdkVersion rootProject.targetSdkVersion

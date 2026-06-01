@@ -16,6 +16,10 @@ jobs:
     name: Build content-blocker APK
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
     steps:
       - name: Checkout
@@ -33,17 +37,21 @@ jobs:
 
       - name: Prepare release keystore
         env:
-          ADGUARD_KEYSTORE_BASE64: ${{ secrets.ADGUARD_KEYSTORE_BASE64 }}
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
         run: |
-          if [ -n "$ADGUARD_KEYSTORE_BASE64" ]; then
-            printf '%s' "$ADGUARD_KEYSTORE_BASE64" | base64 -d > adguard_cb/adguard.keystore
+          KEYSTORE_PASSWORD="${KEYSTORE_PASSWORD:-adguard}"
+          KEY_PASSWORD="${KEY_PASSWORD:-$KEYSTORE_PASSWORD}"
+          KEY_ALIAS="${KEY_ALIAS:-adguard}"
+
+          if [ -n "$KEYSTORE_B64" ]; then
+            printf '%s' "$KEYSTORE_B64" | base64 -d > adguard_cb/adguard.keystore
           else
             rm -f adguard_cb/adguard.keystore
             keytool -genkeypair \
               -keystore adguard_cb/adguard.keystore \
-              -storepass adguard \
-              -keypass adguard \
-              -alias adguard \
+              -storepass "$KEYSTORE_PASSWORD" \
+              -keypass "$KEY_PASSWORD" \
+              -alias "$KEY_ALIAS" \
               -keyalg RSA \
               -keysize 2048 \
               -validity 10000 \
