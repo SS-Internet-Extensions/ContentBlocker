@@ -13,7 +13,6 @@ public final class ScriptletScriptBuilder {
     public String build(List<AdvancedRule> rules, String pageUrl) {
         StringBuilder script = new StringBuilder();
         script.append("(function(){\n");
-        script.append("window.open=function(){return null;};\n");
         script.append("function getScriptletTarget(path){var parts=path.split('.');var owner=window;");
         script.append("for(var i=0;i<parts.length-1;i++){var part=parts[i];");
         script.append("if(!part){continue;}if(owner[part]===undefined||owner[part]===null){owner[part]={};}");
@@ -36,12 +35,15 @@ public final class ScriptletScriptBuilder {
         script.append("for(var i=0;i<nodes.length;i++){var node=nodes[i];");
         script.append("if(node&&node.classList){node.classList.remove(name);}}}\n");
         script.append("function observeScriptlet(fn){fn();if(typeof MutationObserver!=='undefined'){");
-        script.append("new MutationObserver(fn).observe(document.documentElement||document,{childList:true,subtree:true,attributes:true});}}\n");
+        script.append("var scheduled=false;new MutationObserver(function(){if(scheduled){return;}scheduled=true;");
+        script.append("setTimeout(function(){scheduled=false;fn();},100);})");
+        script.append(".observe(document.documentElement||document,{childList:true,subtree:true,attributes:true});}}\n");
         script.append("function abortCurrentInlineScript(path,token){var target=getScriptletTarget(path);var value=target.owner[target.prop];");
         script.append("Object.defineProperty(target.owner,target.prop,{configurable:true,get:function(){");
         script.append("var script=document.currentScript;if(script&&token&&(script.textContent||'').indexOf(token)!==-1){");
         script.append("throw new ReferenceError('Blocked inline script');}return value;},set:function(next){value=next;}});}\n");
         script.append("function scriptletNeedleMatches(value,needle){value=String(value||'');needle=String(needle||'');");
+        script.append("if(needle.length>512){return false;}if(value.length>8192){value=value.slice(0,8192);}");
         script.append("if(!needle){return true;}if(needle.charAt(0)==='/'&&needle.lastIndexOf('/')>0){");
         script.append("try{var end=needle.lastIndexOf('/');var rx=needle.slice(1,end);var flags=needle.slice(end+1);");
         script.append("return new RegExp(rx,flags).test(value);}catch(e){return false;}}return value.indexOf(needle)!==-1;}\n");

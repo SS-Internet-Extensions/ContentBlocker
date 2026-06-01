@@ -3,11 +3,25 @@ package com.adguard.android.contentblocker.filtering.advanced;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
 public final class TrackingParameterCleaner {
+
+    private static final int MAX_REGEX_PATTERN_LENGTH = 256;
+    private static final int MAX_WILDCARD_PATTERN_LENGTH = 256;
+    private static final int MAX_PARAMETER_NAME_LENGTH = 512;
+    private static final int PATTERN_CACHE_SIZE = 256;
+    private static final Map<PatternCacheKey, Pattern> PATTERN_CACHE =
+            new LinkedHashMap<PatternCacheKey, Pattern>(PATTERN_CACHE_SIZE, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<PatternCacheKey, Pattern> eldest) {
+                    return size() > PATTERN_CACHE_SIZE;
+                }
+            };
 
     private final AdvancedRuleSet rules;
     private final AdvancedFilterLogger logger;
@@ -161,16 +175,22 @@ public final class TrackingParameterCleaner {
     private static boolean regexMatches(String configured, String parameterName) {
         int end = configured.lastIndexOf('/');
         String regex = configured.substring(1, end);
+        if (!isSafeMatch(regex, parameterName, MAX_REGEX_PATTERN_LENGTH)) {
+            return false;
+        }
         String flags = configured.substring(end + 1);
         int patternFlags = flags.indexOf('i') >= 0 ? Pattern.CASE_INSENSITIVE : 0;
         try {
-            return Pattern.compile(regex, patternFlags).matcher(parameterName).find();
+            return cachedPattern(regex, patternFlags).matcher(parameterName).find();
         } catch (PatternSyntaxException ignored) {
             return false;
         }
     }
 
     private static boolean wildcardMatches(String configured, String parameterName) {
+        if (!isSafeMatch(configured, parameterName, MAX_WILDCARD_PATTERN_LENGTH)) {
+            return false;
+        }
         StringBuilder regex = new StringBuilder("^");
         for (int i = 0; i < configured.length(); i++) {
             char c = configured.charAt(i);
@@ -183,7 +203,25 @@ public final class TrackingParameterCleaner {
             }
         }
         regex.append('$');
-        return Pattern.compile(regex.toString()).matcher(parameterName).matches();
+        return cachedPattern(regex.toString(), 0).matcher(parameterName).matches();
+    }
+
+    private static boolean isSafeMatch(String pattern, String value, int maxPatternLength) {
+        return pattern.length() <= maxPatternLength &&
+                value != null &&
+                value.length() <= MAX_PARAMETER_NAME_LENGTH;
+    }
+
+    private static Pattern cachedPattern(String regex, int flags) {
+        PatternCacheKey key = new PatternCacheKey(regex, flags);
+        synchronized (PATTERN_CACHE) {
+            Pattern pattern = PATTERN_CACHE.get(key);
+            if (pattern == null) {
+                pattern = Pattern.compile(regex, flags);
+                PATTERN_CACHE.put(key, pattern);
+            }
+            return pattern;
+        }
     }
 
     private static void appendQuoted(StringBuilder regex, char c) {
@@ -215,5 +253,32 @@ public final class TrackingParameterCleaner {
             result.append(values.get(i));
         }
         return result.toString();
+    }
+
+    private static final class PatternCacheKey {
+        private final String regex;
+        private final int flags;
+
+        private PatternCacheKey(String regex, int flags) {
+            this.regex = regex;
+            this.flags = flags;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+            if (!(other instanceof PatternCacheKey)) {
+                return false;
+            }
+            PatternCacheKey that = (PatternCacheKey) other;
+            return flags == that.flags && regex.equals(that.regex);
+        }
+
+        @Override
+        public int hashCode() {
+            return 31 * regex.hashCode() + flags;
+        }
     }
 }

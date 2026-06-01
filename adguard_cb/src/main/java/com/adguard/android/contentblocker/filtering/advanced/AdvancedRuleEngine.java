@@ -1,14 +1,36 @@
 package com.adguard.android.contentblocker.filtering.advanced;
 
 import java.net.URI;
+import java.util.LinkedHashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
 public final class AdvancedRuleEngine {
 
+    private static final int MAX_REGEX_PATTERN_LENGTH = 1024;
+    private static final int MAX_WILDCARD_PATTERN_LENGTH = 2048;
+    private static final int MAX_MATCH_INPUT_LENGTH = 16384;
+    private static final int PATTERN_CACHE_SIZE = 512;
+    private static final int PAGE_EXCEPTION_CACHE_SIZE = 128;
+    private static final Map<PatternCacheKey, Pattern> PATTERN_CACHE =
+            new LinkedHashMap<PatternCacheKey, Pattern>(PATTERN_CACHE_SIZE, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<PatternCacheKey, Pattern> eldest) {
+                    return size() > PATTERN_CACHE_SIZE;
+                }
+            };
+
     private final AdvancedRuleSet rules;
     private final AdvancedFilterLogger logger;
+    private final Map<String, Boolean> genericblockCache =
+            new LinkedHashMap<String, Boolean>(PAGE_EXCEPTION_CACHE_SIZE, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<String, Boolean> eldest) {
+                    return size() > PAGE_EXCEPTION_CACHE_SIZE;
+                }
+            };
     private static final ResourceTypeOption[] RESOURCE_TYPE_OPTIONS = new ResourceTypeOption[]{
             new ResourceTypeOption("script", RequestContext.TYPE_SCRIPT),
             new ResourceTypeOption("image", RequestContext.TYPE_IMAGE),
@@ -155,18 +177,38 @@ public final class AdvancedRuleEngine {
     }
 
     private boolean genericblockDisabled(RequestContext context) {
+        String pageUrl = context.getPageUrl();
+        Boolean cached = cachedGenericblock(pageUrl);
+        if (cached != null) {
+            return cached;
+        }
+
         RequestContext pageContext = new RequestContext(
-                context.getPageUrl(),
-                context.getPageUrl(),
+                pageUrl,
+                pageUrl,
                 RequestContext.TYPE_DOCUMENT,
                 true,
                 "GET");
         for (AdvancedRule rule : rules.getNetworkRules()) {
             if (rule.isException() && rule.hasOption("genericblock") && matches(rule, pageContext)) {
+                cacheGenericblock(pageUrl, true);
                 return true;
             }
         }
+        cacheGenericblock(pageUrl, false);
         return false;
+    }
+
+    private Boolean cachedGenericblock(String pageUrl) {
+        synchronized (genericblockCache) {
+            return genericblockCache.get(pageUrl);
+        }
+    }
+
+    private void cacheGenericblock(String pageUrl, boolean disabled) {
+        synchronized (genericblockCache) {
+            genericblockCache.put(pageUrl, disabled);
+        }
     }
 
     private static boolean isGenericNetworkRule(AdvancedRule rule) {
@@ -425,15 +467,22 @@ public final class AdvancedRuleEngine {
     private static boolean regexMatches(String pattern, String requestUrl, boolean matchCase) {
         int end = pattern.lastIndexOf('/');
         String regex = pattern.substring(1, end);
+        if (!isSafeMatch(regex, requestUrl, MAX_REGEX_PATTERN_LENGTH)) {
+            return false;
+        }
         int patternFlags = matchCase ? 0 : Pattern.CASE_INSENSITIVE;
         try {
-            return Pattern.compile(regex, patternFlags).matcher(requestUrl).find();
+            return cachedPattern(regex, patternFlags).matcher(requestUrl).find();
         } catch (PatternSyntaxException ignored) {
             return false;
         }
     }
 
     private static boolean wildcardMatches(String pattern, String value, boolean matchCase) {
+        if (!isSafeMatch(pattern, value, MAX_WILDCARD_PATTERN_LENGTH)) {
+            return false;
+        }
+
         StringBuilder regex = new StringBuilder();
         if (pattern.startsWith("|")) {
             regex.append('^');
@@ -461,7 +510,25 @@ public final class AdvancedRuleEngine {
         }
 
         int flags = matchCase ? 0 : Pattern.CASE_INSENSITIVE;
-        return Pattern.compile(regex.toString(), flags).matcher(value).find();
+        return cachedPattern(regex.toString(), flags).matcher(value).find();
+    }
+
+    private static boolean isSafeMatch(String pattern, String value, int maxPatternLength) {
+        return pattern.length() <= maxPatternLength &&
+                value != null &&
+                value.length() <= MAX_MATCH_INPUT_LENGTH;
+    }
+
+    private static Pattern cachedPattern(String regex, int flags) {
+        PatternCacheKey key = new PatternCacheKey(regex, flags);
+        synchronized (PATTERN_CACHE) {
+            Pattern pattern = PATTERN_CACHE.get(key);
+            if (pattern == null) {
+                pattern = Pattern.compile(regex, flags);
+                PATTERN_CACHE.put(key, pattern);
+            }
+            return pattern;
+        }
     }
 
     private static void appendQuoted(StringBuilder regex, char c) {
@@ -509,6 +576,33 @@ public final class AdvancedRuleEngine {
         private ResourceTypeOption(String optionName, String resourceType) {
             this.optionName = optionName;
             this.resourceType = resourceType;
+        }
+    }
+
+    private static final class PatternCacheKey {
+        private final String regex;
+        private final int flags;
+
+        private PatternCacheKey(String regex, int flags) {
+            this.regex = regex;
+            this.flags = flags;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+            if (!(other instanceof PatternCacheKey)) {
+                return false;
+            }
+            PatternCacheKey that = (PatternCacheKey) other;
+            return flags == that.flags && regex.equals(that.regex);
+        }
+
+        @Override
+        public int hashCode() {
+            return 31 * regex.hashCode() + flags;
         }
     }
 }

@@ -27,6 +27,20 @@ public class AdvancedFilterLoggerTest {
     }
 
     @Test
+    public void redactsSensitiveUrlPartsInEvents() {
+        AdvancedFilterEvent event = new AdvancedFilterEvent(
+                AdvancedFilterEvent.Type.BLOCK,
+                "https://example.com/path?token=secret#account",
+                "https://page.example/read?session=secret",
+                "",
+                "",
+                1);
+
+        assertEquals("https://example.com/path?...#...", event.getRequestUrl());
+        assertEquals("https://page.example/read?...", event.getPageUrl());
+    }
+
+    @Test
     public void recordsEngineDecisions() {
         AdvancedFilterLogger logger = new AdvancedFilterLogger(8);
         AdvancedRuleSet rules = new AdvancedRuleCompiler().compile(Arrays.asList(

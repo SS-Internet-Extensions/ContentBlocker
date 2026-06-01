@@ -29,13 +29,13 @@ public final class ProceduralCosmeticScriptBuilder {
         script.append("node.style.setProperty('display','none','important');}}}\n");
         script.append("function hideMatchesAttr(selector,name,value){var nodes;try{nodes=document.querySelectorAll(selector||'*');}");
         script.append("catch(e){nodes=document.getElementsByTagName('*');}");
-        script.append("var matcher=value?new RegExp(value):null;");
+        script.append("var matcher=null;if(value){if(value.length>512){return;}try{matcher=new RegExp(value);}catch(e){return;}}");
         script.append("for(var i=0;i<nodes.length;i++){var node=nodes[i];if(!node||!node.getAttribute){continue;}");
         script.append("var attr=node.getAttribute(name);if(attr!==null&&(!matcher||matcher.test(attr))){");
         script.append("node.style.setProperty('display','none','important');}}}\n");
         script.append("function hideMatchesCss(selector,name,value){var nodes;try{nodes=document.querySelectorAll(selector||'*');}");
         script.append("catch(e){nodes=document.getElementsByTagName('*');}");
-        script.append("var matcher=value?new RegExp(value):null;");
+        script.append("var matcher=null;if(value){if(value.length>512){return;}try{matcher=new RegExp(value);}catch(e){return;}}");
         script.append("for(var i=0;i<nodes.length;i++){var node=nodes[i];if(!node){continue;}");
         script.append("var style=window.getComputedStyle?window.getComputedStyle(node):null;");
         script.append("var css=style?style.getPropertyValue(name):'';if(css&&(!matcher||matcher.test(css))){");
@@ -66,7 +66,8 @@ public final class ProceduralCosmeticScriptBuilder {
         script.append("}\n");
         script.append("applyProceduralCosmetics();\n");
         script.append("if(typeof MutationObserver!=='undefined'){");
-        script.append("new MutationObserver(function(){applyProceduralCosmetics();})");
+        script.append("var proceduralScheduled=false;new MutationObserver(function(){if(proceduralScheduled){return;}");
+        script.append("proceduralScheduled=true;setTimeout(function(){proceduralScheduled=false;applyProceduralCosmetics();},100);})");
         script.append(".observe(document.documentElement||document,{childList:true,subtree:true,characterData:true});}\n");
         script.append("})();");
         return script.toString();

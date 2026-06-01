@@ -4,6 +4,7 @@ import org.junit.Test;
 
 import java.util.Arrays;
 
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public class ScriptBuilderTest {
@@ -18,7 +19,7 @@ public class ScriptBuilderTest {
         String script = new ScriptletScriptBuilder().build(rules.getScriptletRules());
 
         assertTrue(script.startsWith("(function(){"));
-        assertTrue(script.contains("window.open=function(){return null;}"));
+        assertFalse(script.contains("window.open=function(){return null;}"));
         assertTrue(script.contains("Object.defineProperty"));
         assertTrue(script.contains("adBlockDetected"));
         assertTrue(script.contains("false"));
@@ -44,7 +45,7 @@ public class ScriptBuilderTest {
 
         String script = new ScriptletScriptBuilder().build(rules.getScriptletRules(), "https://other.example");
 
-        assertTrue(script.contains("window.open=function(){return null;}"));
+        assertFalse(script.contains("window.open=function(){return null;}"));
         assertTrue(!script.contains("adBlockDetected"));
     }
 
