@@ -124,6 +124,38 @@ public class AdvancedRuleEngineTest {
     }
 
     @Test
+    public void matchesPatternsCaseInsensitiveByDefault() {
+        AdvancedRuleSet rules = new AdvancedRuleCompiler().compile(Arrays.asList(
+                "/adserver\\d+\\.js/$script"));
+        AdvancedRuleEngine engine = new AdvancedRuleEngine(rules);
+
+        FilterDecision decision = engine.evaluate("https://cdn.example.com/ADSERVER42.JS", "https://example.com");
+
+        assertEquals(FilterDecision.Action.BLOCK, decision.getAction());
+    }
+
+    @Test
+    public void respectsMatchCaseOption() {
+        AdvancedRuleSet rules = new AdvancedRuleCompiler().compile(Arrays.asList(
+                "||cdn.example/CaseSensitive.js$script,match-case"));
+        AdvancedRuleEngine engine = new AdvancedRuleEngine(rules);
+
+        FilterDecision lowerCaseDecision = engine.evaluate(new RequestContext(
+                "https://cdn.example/casesensitive.js",
+                "https://example.com",
+                RequestContext.TYPE_SCRIPT,
+                false));
+        FilterDecision exactCaseDecision = engine.evaluate(new RequestContext(
+                "https://cdn.example/CaseSensitive.js",
+                "https://example.com",
+                RequestContext.TYPE_SCRIPT,
+                false));
+
+        assertEquals(FilterDecision.Action.ALLOW, lowerCaseDecision.getAction());
+        assertEquals(FilterDecision.Action.BLOCK, exactCaseDecision.getAction());
+    }
+
+    @Test
     public void blocksWildcardPattern() {
         AdvancedRuleSet rules = new AdvancedRuleCompiler().compile(Arrays.asList(
                 "*://*.tracker.example/*$image"));
@@ -188,6 +220,35 @@ public class AdvancedRuleEngineTest {
     }
 
     @Test
+    public void supportsResourceTypeAliases() {
+        AdvancedRuleSet rules = new AdvancedRuleCompiler().compile(Arrays.asList(
+                "||cdn.example/style.css$css",
+                "||cdn.example/frame.html$frame",
+                "||api.example/data.json$xhr"));
+        AdvancedRuleEngine engine = new AdvancedRuleEngine(rules);
+
+        FilterDecision cssDecision = engine.evaluate(new RequestContext(
+                "https://cdn.example/style.css",
+                "https://example.com",
+                RequestContext.TYPE_STYLESHEET,
+                false));
+        FilterDecision frameDecision = engine.evaluate(new RequestContext(
+                "https://cdn.example/frame.html",
+                "https://example.com",
+                RequestContext.TYPE_SUBDOCUMENT,
+                false));
+        FilterDecision xhrDecision = engine.evaluate(RequestContext.infer(
+                "https://api.example/data.json",
+                "https://example.com",
+                false,
+                "application/json"));
+
+        assertEquals(FilterDecision.Action.BLOCK, cssDecision.getAction());
+        assertEquals(FilterDecision.Action.BLOCK, frameDecision.getAction());
+        assertEquals(FilterDecision.Action.BLOCK, xhrDecision.getAction());
+    }
+
+    @Test
     public void respectsThirdPartyOptions() {
         AdvancedRuleSet rules = new AdvancedRuleCompiler().compile(Arrays.asList(
                 "||tracker.example^$third-party"));
@@ -206,6 +267,34 @@ public class AdvancedRuleEngineTest {
 
         assertEquals(FilterDecision.Action.ALLOW, firstPartyDecision.getAction());
         assertEquals(FilterDecision.Action.BLOCK, thirdPartyDecision.getAction());
+    }
+
+    @Test
+    public void supportsThirdPartyAliases() {
+        AdvancedRuleSet rules = new AdvancedRuleCompiler().compile(Arrays.asList(
+                "||tracker.example/pixel$3p",
+                "||tracker.example/account$1p"));
+        AdvancedRuleEngine engine = new AdvancedRuleEngine(rules);
+
+        FilterDecision thirdPartyDecision = engine.evaluate(new RequestContext(
+                "https://tracker.example/pixel",
+                "https://example.com",
+                RequestContext.TYPE_IMAGE,
+                false));
+        FilterDecision firstPartyDecision = engine.evaluate(new RequestContext(
+                "https://static.tracker.example/account",
+                "https://www.tracker.example/profile",
+                RequestContext.TYPE_IMAGE,
+                false));
+        FilterDecision wrongContextDecision = engine.evaluate(new RequestContext(
+                "https://tracker.example/account",
+                "https://example.com",
+                RequestContext.TYPE_IMAGE,
+                false));
+
+        assertEquals(FilterDecision.Action.BLOCK, thirdPartyDecision.getAction());
+        assertEquals(FilterDecision.Action.BLOCK, firstPartyDecision.getAction());
+        assertEquals(FilterDecision.Action.ALLOW, wrongContextDecision.getAction());
     }
 
     private static void assertRedirect(FilterDecision decision, String resourceName, String mimeType, int bodySize) {

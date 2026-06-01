@@ -12,6 +12,9 @@ public final class RequestContext {
     public static final String TYPE_IMAGE = "image";
     public static final String TYPE_FONT = "font";
     public static final String TYPE_MEDIA = "media";
+    public static final String TYPE_XMLHTTPREQUEST = "xmlhttprequest";
+    public static final String TYPE_WEBSOCKET = "websocket";
+    public static final String TYPE_PING = "ping";
     public static final String TYPE_OTHER = "other";
 
     private final String requestUrl;
@@ -77,6 +80,9 @@ public final class RequestContext {
         if (accept.contains("text/html")) {
             return TYPE_SUBDOCUMENT;
         }
+        if (accept.contains("application/json") || accept.contains("text/plain")) {
+            return TYPE_XMLHTTPREQUEST;
+        }
 
         String path = path(requestUrl).toLowerCase(Locale.US);
         if (path.endsWith(".js") || path.endsWith(".mjs")) {
@@ -94,6 +100,14 @@ public final class RequestContext {
         }
         if (path.endsWith(".mp4") || path.endsWith(".webm") || path.endsWith(".mp3") || path.endsWith(".m4a")) {
             return TYPE_MEDIA;
+        }
+        if (path.endsWith(".json") || path.endsWith(".xml")) {
+            return TYPE_XMLHTTPREQUEST;
+        }
+
+        String scheme = scheme(requestUrl);
+        if ("ws".equals(scheme) || "wss".equals(scheme)) {
+            return TYPE_WEBSOCKET;
         }
 
         return TYPE_OTHER;
@@ -135,6 +149,15 @@ public final class RequestContext {
         try {
             String path = new URI(url).getRawPath();
             return path == null ? "" : path;
+        } catch (Exception ignored) {
+            return "";
+        }
+    }
+
+    private static String scheme(String url) {
+        try {
+            String scheme = new URI(url).getScheme();
+            return scheme == null ? "" : scheme.toLowerCase(Locale.US);
         } catch (Exception ignored) {
             return "";
         }

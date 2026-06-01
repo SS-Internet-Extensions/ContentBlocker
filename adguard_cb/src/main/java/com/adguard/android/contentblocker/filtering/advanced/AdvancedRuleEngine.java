@@ -9,14 +9,21 @@ public final class AdvancedRuleEngine {
 
     private final AdvancedRuleSet rules;
     private final AdvancedFilterLogger logger;
-    private static final String[] RESOURCE_TYPE_OPTIONS = new String[]{
-            "script",
-            "image",
-            "stylesheet",
-            "font",
-            "media",
-            "document",
-            "subdocument"
+    private static final ResourceTypeOption[] RESOURCE_TYPE_OPTIONS = new ResourceTypeOption[]{
+            new ResourceTypeOption("script", RequestContext.TYPE_SCRIPT),
+            new ResourceTypeOption("image", RequestContext.TYPE_IMAGE),
+            new ResourceTypeOption("stylesheet", RequestContext.TYPE_STYLESHEET),
+            new ResourceTypeOption("css", RequestContext.TYPE_STYLESHEET),
+            new ResourceTypeOption("font", RequestContext.TYPE_FONT),
+            new ResourceTypeOption("media", RequestContext.TYPE_MEDIA),
+            new ResourceTypeOption("document", RequestContext.TYPE_DOCUMENT),
+            new ResourceTypeOption("subdocument", RequestContext.TYPE_SUBDOCUMENT),
+            new ResourceTypeOption("frame", RequestContext.TYPE_SUBDOCUMENT),
+            new ResourceTypeOption("xmlhttprequest", RequestContext.TYPE_XMLHTTPREQUEST),
+            new ResourceTypeOption("xhr", RequestContext.TYPE_XMLHTTPREQUEST),
+            new ResourceTypeOption("websocket", RequestContext.TYPE_WEBSOCKET),
+            new ResourceTypeOption("ping", RequestContext.TYPE_PING),
+            new ResourceTypeOption("other", RequestContext.TYPE_OTHER)
     };
 
     public AdvancedRuleEngine(AdvancedRuleSet rules) {
@@ -139,7 +146,7 @@ public final class AdvancedRuleEngine {
     }
 
     static boolean matches(AdvancedRule rule, RequestContext context) {
-        return contextMatches(rule, context) && patternMatches(rule.getPattern(), context.getRequestUrl());
+        return contextMatches(rule, context) && patternMatches(rule, context.getRequestUrl());
     }
 
     private static boolean contextMatches(AdvancedRule rule, RequestContext context) {
@@ -185,10 +192,10 @@ public final class AdvancedRuleEngine {
         boolean hasPositiveType = false;
         boolean positiveTypeMatches = false;
 
-        for (String resourceType : RESOURCE_TYPE_OPTIONS) {
-            boolean positive = rule.hasOption(resourceType);
-            boolean negative = rule.hasOption("~" + resourceType);
-            boolean typeMatches = resourceType.equals(context.getResourceType());
+        for (ResourceTypeOption option : RESOURCE_TYPE_OPTIONS) {
+            boolean positive = rule.hasOption(option.optionName);
+            boolean negative = rule.hasOption("~" + option.optionName);
+            boolean typeMatches = option.resourceType.equals(context.getResourceType());
 
             if (negative && typeMatches) {
                 return false;
@@ -203,29 +210,37 @@ public final class AdvancedRuleEngine {
     }
 
     private static boolean thirdPartyMatches(AdvancedRule rule, RequestContext context) {
-        if (rule.hasOption("third-party") && !context.isThirdParty()) {
+        if ((rule.hasOption("third-party") || rule.hasOption("3p")) && !context.isThirdParty()) {
             return false;
         }
-        return !rule.hasOption("~third-party") || !context.isThirdParty();
+        if ((rule.hasOption("~third-party") || rule.hasOption("~3p")) && context.isThirdParty()) {
+            return false;
+        }
+        if (rule.hasOption("1p") && context.isThirdParty()) {
+            return false;
+        }
+        return !rule.hasOption("~1p") || context.isThirdParty();
     }
 
-    private static boolean patternMatches(String pattern, String requestUrl) {
+    private static boolean patternMatches(AdvancedRule rule, String requestUrl) {
+        String pattern = rule.getPattern();
+        boolean matchCase = rule.hasOption("match-case");
         if (pattern.length() == 0 || "*".equals(pattern)) {
             return true;
         }
 
         if (isRegexPattern(pattern)) {
-            return regexMatches(pattern, requestUrl);
+            return regexMatches(pattern, requestUrl, matchCase);
         }
 
         if (pattern.startsWith("||")) {
-            return anchoredDomainMatches(pattern.substring(2), requestUrl);
+            return anchoredDomainMatches(pattern.substring(2), requestUrl, matchCase);
         }
 
-        return wildcardMatches(pattern, requestUrl);
+        return wildcardMatches(pattern, requestUrl, matchCase);
     }
 
-    private static boolean anchoredDomainMatches(String pattern, String requestUrl) {
+    private static boolean anchoredDomainMatches(String pattern, String requestUrl, boolean matchCase) {
         String normalizedPattern = pattern;
         int separator = normalizedPattern.indexOf('^');
         if (separator >= 0) {
@@ -234,7 +249,7 @@ public final class AdvancedRuleEngine {
 
         String requestHost = host(requestUrl);
         if (requestHost.length() == 0) {
-            return wildcardMatches("||" + pattern, requestUrl);
+            return wildcardMatches("||" + pattern, requestUrl, matchCase);
         }
 
         String hostPattern = normalizedPattern;
@@ -246,30 +261,31 @@ public final class AdvancedRuleEngine {
         }
 
         boolean hostMatches = hostPattern.indexOf('*') >= 0
-                ? wildcardMatches(hostPattern.toLowerCase(Locale.US), requestHost)
+                ? wildcardMatches(hostPattern.toLowerCase(Locale.US), requestHost, false)
                 : domainMatches(requestHost, hostPattern.toLowerCase(Locale.US));
         if (!hostMatches) {
             return false;
         }
 
-        return pathPattern.length() == 0 || wildcardMatches(pathPattern + "*", pathAndQuery(requestUrl));
+        return pathPattern.length() == 0 || wildcardMatches(pathPattern + "*", pathAndQuery(requestUrl), matchCase);
     }
 
     private static boolean isRegexPattern(String pattern) {
         return pattern.startsWith("/") && pattern.lastIndexOf('/') > 0;
     }
 
-    private static boolean regexMatches(String pattern, String requestUrl) {
+    private static boolean regexMatches(String pattern, String requestUrl, boolean matchCase) {
         int end = pattern.lastIndexOf('/');
         String regex = pattern.substring(1, end);
+        int patternFlags = matchCase ? 0 : Pattern.CASE_INSENSITIVE;
         try {
-            return Pattern.compile(regex).matcher(requestUrl).find();
+            return Pattern.compile(regex, patternFlags).matcher(requestUrl).find();
         } catch (PatternSyntaxException ignored) {
             return false;
         }
     }
 
-    private static boolean wildcardMatches(String pattern, String value) {
+    private static boolean wildcardMatches(String pattern, String value, boolean matchCase) {
         StringBuilder regex = new StringBuilder();
         if (pattern.startsWith("|")) {
             regex.append('^');
@@ -296,7 +312,8 @@ public final class AdvancedRuleEngine {
             regex.append('$');
         }
 
-        return Pattern.compile(regex.toString()).matcher(value).find();
+        int flags = matchCase ? 0 : Pattern.CASE_INSENSITIVE;
+        return Pattern.compile(regex.toString(), flags).matcher(value).find();
     }
 
     private static void appendQuoted(StringBuilder regex, char c) {
@@ -334,6 +351,16 @@ public final class AdvancedRuleEngine {
             return result.toString();
         } catch (Exception ignored) {
             return url;
+        }
+    }
+
+    private static final class ResourceTypeOption {
+        private final String optionName;
+        private final String resourceType;
+
+        private ResourceTypeOption(String optionName, String resourceType) {
+            this.optionName = optionName;
+            this.resourceType = resourceType;
         }
     }
 }
