@@ -199,6 +199,51 @@ public class AdvancedRuleEngineTest {
     }
 
     @Test
+    public void genericblockExceptionSkipsGenericNetworkRules() {
+        AdvancedRuleSet rules = new AdvancedRuleCompiler().compile(Arrays.asList(
+                "@@||example.com^$genericblock",
+                "||ads.example^$script",
+                "||specific.example^$script,domain=example.com"));
+        AdvancedRuleEngine engine = new AdvancedRuleEngine(rules);
+
+        FilterDecision genericDecision = engine.evaluate(new RequestContext(
+                "https://ads.example/ad.js",
+                "https://example.com/page",
+                RequestContext.TYPE_SCRIPT,
+                false));
+        FilterDecision otherPageDecision = engine.evaluate(new RequestContext(
+                "https://ads.example/ad.js",
+                "https://other.example/page",
+                RequestContext.TYPE_SCRIPT,
+                false));
+        FilterDecision specificDecision = engine.evaluate(new RequestContext(
+                "https://specific.example/ad.js",
+                "https://example.com/page",
+                RequestContext.TYPE_SCRIPT,
+                false));
+
+        assertEquals(FilterDecision.Action.ALLOW, genericDecision.getAction());
+        assertEquals(FilterDecision.Action.BLOCK, otherPageDecision.getAction());
+        assertEquals(FilterDecision.Action.BLOCK, specificDecision.getAction());
+    }
+
+    @Test
+    public void importantRuleOverridesGenericblockException() {
+        AdvancedRuleSet rules = new AdvancedRuleCompiler().compile(Arrays.asList(
+                "@@||example.com^$genericblock",
+                "||ads.example^$script,important"));
+        AdvancedRuleEngine engine = new AdvancedRuleEngine(rules);
+
+        FilterDecision decision = engine.evaluate(new RequestContext(
+                "https://ads.example/ad.js",
+                "https://example.com/page",
+                RequestContext.TYPE_SCRIPT,
+                false));
+
+        assertEquals(FilterDecision.Action.BLOCK, decision.getAction());
+    }
+
+    @Test
     public void respectsResourceTypeOptions() {
         AdvancedRuleSet rules = new AdvancedRuleCompiler().compile(Arrays.asList(
                 "||cdn.example/resource$script"));

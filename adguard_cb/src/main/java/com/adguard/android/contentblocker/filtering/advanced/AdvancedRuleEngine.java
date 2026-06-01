@@ -40,7 +40,7 @@ public final class AdvancedRuleEngine {
     }
 
     public FilterDecision evaluate(RequestContext context) {
-        FilterDecision importantDecision = firstMatchingDecision(context, true);
+        FilterDecision importantDecision = firstMatchingDecision(context, true, false);
         if (importantDecision.getAction() != FilterDecision.Action.ALLOW) {
             recordDecision(importantDecision, context);
             return importantDecision;
@@ -55,20 +55,26 @@ public final class AdvancedRuleEngine {
             return FilterDecision.allow();
         }
 
-        FilterDecision decision = firstMatchingDecision(context, false);
+        FilterDecision decision = firstMatchingDecision(context, false, genericblockDisabled(context));
         recordDecision(decision, context);
         return decision;
     }
 
-    private FilterDecision firstMatchingDecision(RequestContext context, boolean importantOnly) {
+    private FilterDecision firstMatchingDecision(RequestContext context, boolean importantOnly, boolean skipGenericRules) {
         for (AdvancedRule rule : rules.getRedirectRules()) {
-            if (!rule.isException() && (!importantOnly || rule.isImportant()) && matches(rule, context)) {
+            if (!rule.isException() &&
+                    (!skipGenericRules || !isGenericNetworkRule(rule)) &&
+                    (!importantOnly || rule.isImportant()) &&
+                    matches(rule, context)) {
                 return FilterDecision.redirect(rule, RedirectResource.fromRule(rule));
             }
         }
 
         for (AdvancedRule rule : rules.getNetworkRules()) {
-            if (!rule.isException() && (!importantOnly || rule.isImportant()) && matches(rule, context)) {
+            if (!rule.isException() &&
+                    (!skipGenericRules || !isGenericNetworkRule(rule)) &&
+                    (!importantOnly || rule.isImportant()) &&
+                    matches(rule, context)) {
                 return FilterDecision.of(FilterDecision.Action.BLOCK, rule);
             }
         }
@@ -112,6 +118,25 @@ public final class AdvancedRuleEngine {
             }
         }
         return null;
+    }
+
+    private boolean genericblockDisabled(RequestContext context) {
+        RequestContext pageContext = new RequestContext(
+                context.getPageUrl(),
+                context.getPageUrl(),
+                RequestContext.TYPE_DOCUMENT,
+                true,
+                "GET");
+        for (AdvancedRule rule : rules.getNetworkRules()) {
+            if (rule.isException() && rule.hasOption("genericblock") && matches(rule, pageContext)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isGenericNetworkRule(AdvancedRule rule) {
+        return rule.getOptionValue("domain").length() == 0 && rule.getOptionValue("from").length() == 0;
     }
 
     private void recordDecision(FilterDecision decision, RequestContext context) {
